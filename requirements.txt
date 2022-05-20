@@ -1,0 +1,1 @@
+git+https://github.com/saketkc/pysradb.git@70bab1b0e435c91013fa30c1f1b4f7d005449f96#egg=pysradb
