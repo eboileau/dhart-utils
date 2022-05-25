@@ -1,1 +1,4 @@
 git+https://github.com/saketkc/pysradb.git@70bab1b0e435c91013fa30c1f1b4f7d005449f96#egg=pysradb
+scanpy==1.9.1
+scikit-learn==1.1.1
+numpy==1.21

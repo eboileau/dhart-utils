@@ -109,6 +109,7 @@ def main():
     else:
         # only if another argument is passed, otherwise we call [--help]
         logger.critical('Input [--geo] or [--file] must be specified.')
+        return
     
     logger.info('Completed successfully.')
 
