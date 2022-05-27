@@ -56,16 +56,16 @@ def main():
                         [--input-format TXT].""", default='matrix', type=str)
 
     parser.add_argument('--mex-gene-ncols', help="""Number of feature file columns, 
-                        used with [--input-format MEX]. If [--mex-gene-ncols 1], it can
-                        be either "gene_ids" or "gene_symbols", otherwise they must be in the 
-                        following order: ["gene_ids", "gene_symbols", "feature_types"].
+                        used with [--input-format MEX]. If [--mex-gene-ncols 1], it should
+                        be "gene_symbol", otherwise they must be in the following 
+                        order: ["gene_id", "gene_symbol", "feature_type"].
                         Silently ignored if [--input-format TXT].""", choices=[1, 2, 3], 
                         default=2, type=int)
                         
     parser.add_argument('--mex-gene-var', help="""Column to use as "var_names". If
                         [--mex-gene-ncols 1], uses whatever is there. Silently ignored if
-                        [--input-format TXT].""", choices=['gene_symbols', 'gene_ids'], 
-                        default='gene_symbols', type=str)
+                        [--input-format TXT].""", choices=['gene_symbol', 'gene_id'], 
+                        default='gene_symbol', type=str)
     
     parser.add_argument('--txt-ext', help="""Extension that indicates the file type. 
                         If None, uses extension of filename, see the anndata read_txt 

@@ -24,7 +24,7 @@ def glob_re(pattern, strings):
 def read_mex(    
     path: Union[Path, str],
     prefix: List[Union[Path, str]],
-    var_names: Literal['gene_symbols', 'gene_ids'] = 'gene_symbols',
+    var_names: Literal['gene_symbol', 'gene_id'] = 'gene_symbol',
     n_vars: int = 2,
     make_unique: bool = True,
     dtype: str = "float32"
@@ -65,16 +65,16 @@ def read_mex(
     mat = csr_matrix(mat).T
     adata = AnnData(mat, dtype=dtype)
     
-    cols = ['gene_ids', 'gene_symbols', 'feature_types']
+    cols = ['gene_id', 'gene_symbol', 'feature_type']
     col = cols[0]
     if n_vars == 1:
-        # ids or symbols, this makes no difference...
-        cols = [col]
+        # should be symbols to work with the portal, but currently we don't check...
+        cols = [cols[1]]
         var_names = cols[0]
     else:
         cols = cols[:n_vars]
         if var_names == col:
-            col = 'gene_symbols'
+            col = 'gene_symbol'
             
     genes = pd.read_csv(
         genefile, 
@@ -88,8 +88,10 @@ def read_mex(
     adata.var_names = var_names
     if n_vars > 1:
         adata.var[col] = genes[col].values
+        if col != 'gene_symbol':
+            adata.var['gene_symbol'] = var_names
     if n_vars > 2:
-        adata.var['feature_types'] = genes['feature_types'].values
+        adata.var['feature_type'] = genes['feature_type'].values
         
     adata.obs_names = pd.read_csv(
         barcodefile, 
