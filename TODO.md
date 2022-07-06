@@ -8,6 +8,7 @@
   
 - [ ] This would probably not happen if we select our datasets, but if there are no supp data, SOFT file will be downloaded, and
 an error will be thrown in `get_supp_files`. We could add a check and terminate gracefully.
+- [ ] Clean (extract)
 
 ### In Progress
 

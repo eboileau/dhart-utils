@@ -351,7 +351,9 @@ class GSE(BaseGEO):
                               'microarray', 
                               'ChIP-Seq',
                               'ATAC-Seq'] = 'single-cell RNA-Seq',
-        annotation_source: Literal['Ensembl', 'Genbank'] = 'Ensembl',
+        genome_assembly: str = None,
+        annotation_source: str = None,
+        annotation_release: int = None,
         tags: Union[str, List[str]] = None
     ):
        
@@ -365,8 +367,12 @@ class GSE(BaseGEO):
             Directory to download the data.
         dataset_type
             Allowed data types.
+        genome_assembly
+            Genome assembly. If None, try to guess from the SOFT file.
         annotation_source
-            Source of annotation
+            Source of annotation. If None, leave out.
+        annotation_release
+            Annotation release. If None, leave out.
         tags
             Comma-separated string or list of keywords.
         """
@@ -384,13 +390,13 @@ class GSE(BaseGEO):
             compression='gzip'
         )
         
-        # try to guess the annotation release using first SAMPLE
+        # try to guess the assembly using first SAMPLE
         try:
             sample = self.observations.geo_accession.iloc[1]
             data_processing = self.gsms[sample].get_metadata_attribute('data_processing')
-            annotation_release_number = [l.split(': ')[1] for l in data_processing if l.split(': ')[0] == 'Genome_build'][0]
+            genome_assembly = [l.split(': ')[1] for l in data_processing if l.split(': ')[0] == 'Genome_build'][0]
         except:
-            annotation_release_number = ''
+            genome_assembly = ''
         
         if isinstance(tags, list):
             tags = ','.join(tags)
@@ -404,8 +410,9 @@ class GSE(BaseGEO):
             'title': self.get_metadata_attribute('title'),
             'summary': self.get_metadata_attribute('summary'),
             'dataset_type': dataset_type,
-            'annotation_source': annotation_source,
-            'annotation_release_number': annotation_release_number,
+            'assembly': genome_assembly,
+            'annotation_source': annotation_source if annotation_source is not None else '',
+            'annotation_release_number': annotation_release if annotation_release is not None else '',
             'geo_accession': self.get_accession(),
             'contact_email': self.get_metadata_attribute('contact_email'),
             'contact_institute': self.get_metadata_attribute('contact_institute'),

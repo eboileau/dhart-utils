@@ -24,8 +24,7 @@ data_choices = ['single-cell RNA-Seq',
                 'microarray', 
                 'ChIP-Seq', 
                 'ATAC-Seq']
-annotation_choices = ['Ensembl', 
-                      'Genbank']
+
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -41,18 +40,22 @@ def main():
                         with this option.""", nargs="+", type=str)
     
     parser.add_argument('-f', '--gfile', help="""Path to a tab-delimited file with 
-                        GEO (GSE) identifier, data type, annotation source, and tags, 
-                        one entry per line, without header. Tags can be empty. If both
-                        [--geo] and [--file] are given, the latter is silently ignored.""",
+                        GEO (GSE) identifier, data type, assembly, annotation source and 
+                        release, and tags, one entry per line, without header. Tags can be empty. 
+                        If both [--geo] and [--file] are given, the latter is silently ignored.""",
                         type=Path)
     
     parser.add_argument('-t', '--dtype', help="""Allowed data types. If type include a space, 
                         it must be passed with quotes.""", type=str, choices=data_choices, 
                         default='single-cell RNA-Seq')
     
-    parser.add_argument('-a', '--annotation', help="""Annotation source.""", type=str,
-                        choices=annotation_choices, default='Ensembl')
+    parser.add_argument('--genome-assembly', help="""Assembly.""", type=str, default=None)
+
+    parser.add_argument('--annotation-source', help="""Annotation source.""", type=str,
+                        default=None)
     
+    parser.add_argument('--annotation-release', help="""Annotation release number.""", 
+                        type=int, default=None)
     
     utils.add_logging_options(parser)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -63,8 +66,10 @@ def main():
     
     if args.geo:
         args.geo = [geo.upper() for geo in args.geo]
-        msg = f'Using data_type = "{args.dtype}" and ' \
-              f'annotation_source = "{args.annotation}" ' \
+        msg = f'Using data_type = "{args.dtype}" with ' \
+              f'assembly = "{args.genome_assembly}" ' \
+              f'annotation source = "{args.annotation_source}" ' \
+              f'annotation release = "{args.annotation_release}" ' \
               f'for {", ".join(args.geo)}'
         logger.warning(msg)
     
@@ -79,7 +84,9 @@ def main():
             gse.get_input_files(
                 dest=args.dest,
                 dataset_type=args.dtype,
-                annotation_source=args.annotation
+                genome_assembly=args.genome_assembly,
+                annotation_source=args.annotation_source,
+                annotation_release=args.annotation_release,
             )
             
     elif args.gfile:
@@ -87,12 +94,15 @@ def main():
             args.gfile, 
             sep='\t',
             header=None,
-            names=['geo_accession', 'dataset_type', 'annotation_source', 'tags']
+            names=['geo_accession', 'dataset_type', 'genome_assembly', 
+                   'annotation_source', 'annotation_release', 'tags']
         )
         geo['geo_accession'] = geo['geo_accession'].str.upper()
         geo = geo[geo.geo_accession.str.startswith('GSE')].copy()
         geo = geo[geo['dataset_type'].isin(data_choices)].copy()
-        geo = geo[geo['annotation_source'].isin(annotation_choices)].copy()
+        geo['genome_assembly'] = geo['genome_assembly'].fillna('')
+        geo['annotation_source'] = geo['annotation_source'].fillna('')
+        geo['annotation_release'] = geo['annotation_release'].fillna('')
         geo['tags'] = geo['tags'].fillna('')
         
         def _get_geo(row):
@@ -101,7 +111,9 @@ def main():
             gse.get_input_files(
                 dest=args.dest,
                 dataset_type=row.dataset_type,
+                genome_assembly=row.genome_assembly,
                 annotation_source=row.annotation_source,
+                annotation_release=row.annotation_release,
                 tags=row.tags
             )
         geo.apply(_get_geo, axis=1)
