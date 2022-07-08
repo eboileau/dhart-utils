@@ -334,13 +334,18 @@ class GSE(BaseGEO):
         
         out_dir = Path(dest, geo, 'SraRunTable.txt')
         logger.info(f'Writing {out_dir}')
-        SRP = sraweb.gse_to_srp(geo).study_accession.values[0]
-        metadata = sraweb.sra_metadata(SRP)
-        metadata.to_csv(
-            out_dir, 
-            index=False, 
-            header=True
-        )
+        try:
+            SRP = sraweb.gse_to_srp(geo).study_accession.values[0]
+            metadata = sraweb.sra_metadata(SRP)
+            metadata.to_csv(
+                out_dir, 
+                index=False, 
+                header=True
+            )
+        except:
+            # we had some failed fetch BioProject... 
+            msg = f'Failed to fetch (and download) SRA metadata for {geo}...' 
+            logger.warning(msg)
         
     
     def get_input_files(
@@ -406,6 +411,15 @@ class GSE(BaseGEO):
             tags = ''
             
         # Only fill essential fields, remaining fields are filled at upload
+        
+        # in some instances, contact email is missing...
+        try:
+            contact_email = self.get_metadata_attribute('contact_email')
+        except NoMetadataException:
+            msg = f'No contact email found for {geo}! Replacing by default admin@localhost.'
+            logger.warning(msg)
+            contact_email = 'admin@localhost'
+        
         metadata = {
             'title': self.get_metadata_attribute('title'),
             'summary': self.get_metadata_attribute('summary'),
@@ -414,7 +428,7 @@ class GSE(BaseGEO):
             'annotation_source': annotation_source if annotation_source is not None else '',
             'annotation_release_number': annotation_release if annotation_release is not None else '',
             'geo_accession': self.get_accession(),
-            'contact_email': self.get_metadata_attribute('contact_email'),
+            'contact_email': contact_email,
             'contact_institute': self.get_metadata_attribute('contact_institute'),
             'contact_name': self.get_metadata_attribute('contact_name'),
             'sample_taxid': self.get_metadata_attribute('sample_taxid'), # check if consistent with platform_taxid?
