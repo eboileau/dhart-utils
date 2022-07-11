@@ -19,7 +19,7 @@ import logging
 import numpy as np
 
 from pathlib import Path, PurePath
-from typing import Union, Optional, List, Literal
+from typing import Union, Optional, List, Literal, Dict
 from collections import defaultdict
 from itertools import groupby
 from pandas import DataFrame, read_csv
@@ -66,7 +66,7 @@ class BaseGEO(object):
     def __init__(
         self, 
         name: str = None, 
-        metadata: dict[str, List[str]] = None
+        metadata: Dict[str, List[str]] = None
     ):
         
         """\
