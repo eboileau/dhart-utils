@@ -16,6 +16,37 @@ The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEA
 
 There is currently no documentation available.
 
+#### accession.py
+
+This script is used to download GEO Series and will prepare the data for ingestion into DHART. 
+
+The following parameters are supported: 
+
+-d, --dest: Path to directory where files will be written. For each GEO identifier, a new directory will be created.
+
+-g, --geo: A GEO (GSE) identifier, or a space separated list of identifiers. Use this option only if all datasets have the same [dataset_type] and [annotation_source]. Tags cannot be specified.
+
+-f, --gfile: Path to a tab-delimited file with GEO (GSE) identifier, data type, annotation source, and tags, one entry per line, without header. Tags can be empty. If both [--geo] and [--file] are given, the latter is silently ignored.
+
+-t, --dtype: Allowed data types. If type include a space, it must be passed with quotes. 
+
+- default: 'single-cell RNA-Seq'
+
+choices:
+- 'single-cell RNA-Seq'
+- 'bulk RNA-Seq'
+- 'microarray'
+- 'ChIP-Seq'
+- 'ATAC-Seq'
+
+-a, --annotation: Annotation source.
+
+- default='Ensembl'
+
+choices: 
+- 'Ensembl'
+- 'Genbank'
+
 ### Installation
 
 This repository is currently not *installable* ( *i.e.* it is not a package ). 
