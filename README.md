@@ -6,7 +6,6 @@ metadata preparation, data wrangling, _etc._
 
 The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEAR), developped by the [Institute for Genome Sciences](https://github.com/IGS/gEAR).
 
-
 !!! info
 
     This repository is currently under development.
@@ -26,7 +25,7 @@ The following parameters are supported:
 
 `-f, --gfile`: Path to a tab-delimited file with GEO (GSE) identifier, data type, annotation source, and tags, one entry per line, without header. Tags can be empty. If both [--geo] and [--file] are given, the latter is silently ignored.
 
-`-t, --dtype`: Allowed data types. If type include a space, it must be passed with quotes. 
+`-t, --dtype`: Allowed data types. If type include a space, it must be passed with quotes.
 
 - default: 'single-cell RNA-Seq'
 
@@ -48,6 +47,8 @@ choices:
 - 'Genbank'
 
 ### wrangling.py
+
+This is a data wrangling wrapper to prepare and reformat GEO supplementary files into h5ad for input into DHART.
 
 The following parameters are supported:
 
