@@ -1,19 +1,12 @@
 if (!require("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
+    install.packages("BiocManager")
+BiocManager::install(version = "3.15")
 
 BiocManager::install("edgeR")
 BiocManager::install("DESeq2")
 
 library(edgeR)
 library(DESeq2)
-
-
-dge <- calcNormFactors(dge, method = "TMM")
-tmm <- cpm(dge)
-
-
-
-
 
 normalized_tmm_data <- function(input_data) {
   #'
@@ -39,10 +32,7 @@ normalized_deseq2_data <- function(input_data) {
   #
 
   ## Create DESeq2Dataset object
-  dds <- DESeqDataSetFromMatrix(countData = data, colData = meta, design = ~ sampletype)
-  
+  deseq2_normalized_data <- DESeqDataSetFromMatrix(countData = input_data, colData = meta, design = ~ sampletype)
 
-
-  deseq2_normalized_data <- calcNormFactors(input_data)
   return(deseq2_normalized_data)
 }
