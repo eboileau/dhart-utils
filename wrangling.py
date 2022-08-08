@@ -4,10 +4,18 @@
    supplementary files into h5ad for input into DHART. 
 """
 
+from ast import arg
 import sys
 import logging
 import argparse
 import re
+from importlib_metadata import metadata
+import pandas as pd
+import rpy2.robjects as robjects
+from rpy2.robjects import pandas2ri
+from rpy2.robjects.conversion import localconverter
+from rpy2.robjects.packages import importr
+from biomart import BiomartServer
 
 import tarfile
 from pathlib import Path
@@ -22,10 +30,7 @@ import utils.data_utils as data_utils
 logger = logging.getLogger(__name__)
 
 
-required_files = ['_filelist.txt', 
-                  '_RAW.tar', 
-                  'observations.tab.gz']
-
+required_files = []
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -36,6 +41,12 @@ def main():
     
     parser.add_argument('-n', '--name', help="""Name of H5AD output.""", type=str, 
                         default='adata')
+
+    parser.add_argument('-b', '--bulk', help="""Specifies whether input file is bulk or single-cell data.""", 
+                        action='store_true')
+
+    parser.add_argument('--gene-info', help="""Indicate presence of gene ID and/or gene name.""", type=str, 
+                        default='ID', choices=['ID', 'name', 'ID+name'])
     
     parser.add_argument('-fmt', '--input-format', help="""Input format: either MEX (e.g. TSV
                         and MTX), or TXT (e.g. TXT, TSV, or CSV). Market Exchange (MEX) format
@@ -107,6 +118,10 @@ def main():
     parser.add_argument('--do-normalise', help="""If this flag is present, then 
                         output is also written as normalised, in addition to raw.
                         Input files must be raw.""", action='store_true')
+
+    parser.add_argument('--normalization-method', help="""Set the normalization method. 
+                        Flag is silently ignored if --do-normalize isn't set""", 
+                        default='edgeR-TMM', choices=['edgeR-TMM', 'deseq2', 'TPM'])
     
     utils.add_logging_options(parser)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -115,6 +130,12 @@ def main():
     msg = f'[wrangling]: {" ".join(sys.argv)}'
     logger.info(msg)
     
+    # Set required files according to what data was provided
+    if args.bulk: 
+        required_files = ['bulk_input.csv', 'observations.tab.gz']
+    else:
+        required_files = ['_filelist.txt', '_RAW.tar', 'observations.tab.gz']
+        
     # first check that all required files are available
     all_files = [p.name for p in list(filter(Path.is_file, args.dest.glob('*.*')))]
     pattern = fr'.*({"|".join(required_files)})'
@@ -124,131 +145,297 @@ def main():
               f'Only these files were found: {", ".join(filenames)}'
         logger.critical(msg)
         return
-    # must be consistent with the order of required_files
-    filen = [f for f in filenames if required_files[0] in f][0]
-    filelist = pd.read_csv(
-        Path(args.dest, filen),
-        header=None,
-        names=['File', 'Name', 'Time', 'Size', 'Type'],
-        comment='#',
-        sep='\t'
-    )
-    filen = [f for f in filenames if required_files[2] in f][0]
-    observations = pd.read_csv(
-        Path(args.dest, filen),
-        sep='\t'
-    )
-    tarname = Path(args.dest, filelist[filelist.File=='Archive'].Name[0])
-    filelist = filelist[~(filelist.File=='Archive')].copy()
-    filelist.reset_index(drop=True, inplace=True)
-    filelist['Sample'] = filelist['Name'].str.split('_', n=1, expand=True)[0].values
-    
-    # check which files to extract
-    pattern = fr'.*({"|".join(args.pattern)}).*'
-    filelist = filelist[filelist.Name.str.match(pattern, flags=re.IGNORECASE)]
-    filelist.reset_index(drop=True, inplace=True)
-    observations = observations[observations.geo_accession.isin(filelist.Sample)].copy()
-    observations.reset_index(drop=True, inplace=True)
-    
-    # NOTE: we don't check observations (supplementary_file_) for consistency... 
-    if args.input_format == 'MEX':
-        mex_files = "|".join([args.mex_gene, args.mex_barcode, args.mex_matrix])
-        pattern = fr'.*({mex_files}).*'
+
+    if not args.bulk:
+        # This section applies to scRNA data
+
+        # must be consistent with the order of required_files
+        filen = [f for f in filenames if required_files[0] in f][0]
+        filelist = pd.read_csv(
+            Path(args.dest, filen),
+            header=None,
+            names=['File', 'Name', 'Time', 'Size', 'Type'],
+            comment='#',
+            sep='\t'
+        )
+        filen = [f for f in filenames if required_files[2] in f][0]
+        observations = pd.read_csv(
+            Path(args.dest, filen),
+            sep='\t'
+        )
+        tarname = Path(args.dest, filelist[filelist.File=='Archive'].Name[0])
+        filelist = filelist[~(filelist.File=='Archive')].copy()
+        filelist.reset_index(drop=True, inplace=True)
+        filelist['Sample'] = filelist['Name'].str.split('_', n=1, expand=True)[0].values
+        
+        # check which files to extract
+        pattern = fr'.*({"|".join(args.pattern)}).*'
         filelist = filelist[filelist.Name.str.match(pattern, flags=re.IGNORECASE)]
         filelist.reset_index(drop=True, inplace=True)
         observations = observations[observations.geo_accession.isin(filelist.Sample)].copy()
         observations.reset_index(drop=True, inplace=True)
         
-        parse_fmt = data_utils.parse_mex_fmt
-        kwargs = {
-            'mex_gene': args.mex_gene,
-            'mex_barcode': args.mex_barcode,
-            'mex_matrix': args.mex_matrix,
-            'n_vars': args.mex_gene_ncols,
-            'var_names': args.mex_gene_var
-        }
-    else: # TXT
-        parse_fmt = data_utils.parse_txt_fmt
-        kwargs = {
-            'ext': args.txt_ext,
-            'delimiter': args.txt_delimiter,
-            'first_column_names': args.txt_first_column_names,
-            'first_row_names': args.txt_first_row_names
-        }
+        # NOTE: we don't check observations (supplementary_file_) for consistency... 
+        if args.input_format == 'MEX':
+            mex_files = "|".join([args.mex_gene, args.mex_barcode, args.mex_matrix])
+            pattern = fr'.*({mex_files}).*'
+            filelist = filelist[filelist.Name.str.match(pattern, flags=re.IGNORECASE)]
+            filelist.reset_index(drop=True, inplace=True)
+            observations = observations[observations.geo_accession.isin(filelist.Sample)].copy()
+            observations.reset_index(drop=True, inplace=True)
             
-    # extract
-    extract_dir = Path(args.dest, 'extract')
-    # make sure there are no filenames starting with "/"
-    # if these are inconsistent, tarfile will throw an error...
-    to_extract = [Path(n).name for n in filelist.Name]
-    try:
-        extract_dir.mkdir(parents=True, exist_ok=False)
-        try:
-            msg = f'Extracting {tarname}...'
-            logger.info(msg)
-            msg = f'... the following files will be extracted:'
-            logger.info(msg)
-            for sample, group in filelist.groupby('Sample'):
-                msg = f'{sample} {observations[observations.geo_accession==sample].title.values[0]}:\n' \
-                    f'\t{", ".join(group.Name)}'
-                logger.info(msg)
+            parse_fmt = data_utils.parse_mex_fmt
+            kwargs = {
+                'mex_gene': args.mex_gene,
+                'mex_barcode': args.mex_barcode,
+                'mex_matrix': args.mex_matrix,
+                'n_vars': args.mex_gene_ncols,
+                'var_names': args.mex_gene_var
+            }
+        else: # TXT
+            parse_fmt = data_utils.parse_txt_fmt
+            kwargs = {
+                'ext': args.txt_ext,
+                'delimiter': args.txt_delimiter,
+                'first_column_names': args.txt_first_column_names,
+                'first_row_names': args.txt_first_row_names
+            }
                 
-            tar = tarfile.open(tarname)
+        # extract
+        extract_dir = Path(args.dest, 'extract')
+        # make sure there are no filenames starting with "/"
+        # if these are inconsistent, tarfile will throw an error...
+        to_extract = [Path(n).name for n in filelist.Name]
+        try:
+            extract_dir.mkdir(parents=True, exist_ok=False)
+            try:
+                msg = f'Extracting {tarname}...'
+                logger.info(msg)
+                msg = f'... the following files will be extracted:'
+                logger.info(msg)
+                for sample, group in filelist.groupby('Sample'):
+                    msg = f'{sample} {observations[observations.geo_accession==sample].title.values[0]}:\n' \
+                        f'\t{", ".join(group.Name)}'
+                    logger.info(msg)
+                    
+                tar = tarfile.open(tarname)
+                
+                def _members(tar, names):
+                    return (m for m in tar.getmembers() if m.name in names)
             
-            def _members(tar, names):
-                return (m for m in tar.getmembers() if m.name in names)
-        
-            tar.extractall(members=_members(tar, to_extract), path=extract_dir)
-            tar.close()
-        except BaseException:
-            raise
-    except FileExistsError:
-        msg = f'{extract_dir} already exists! Checking if files were extracted...'
-        logging.warning(msg)
-        all_files = [p.name for p in list(filter(Path.is_file, extract_dir.glob('*.*')))]
-        if not (all(m in all_files for m in to_extract)):
-            msg = f'... some (or all) files are missing! Existing files will not be overwritten. ' \
-                  f'Terminating!'
-            logger.critical(msg)
-            return
-        else:
-            if len(all_files) > len(to_extract):
-                msg = f'There are more files ({len(all_files)}) under {extract_dir} ' \
-                      f'than the number of files to extract ({len(to_extract)}). Terminating!'
+                tar.extractall(members=_members(tar, to_extract), path=extract_dir)
+                tar.close()
+            except BaseException:
+                raise
+        except FileExistsError:
+            msg = f'{extract_dir} already exists! Checking if files were extracted...'
+            logging.warning(msg)
+            all_files = [p.name for p in list(filter(Path.is_file, extract_dir.glob('*.*')))]
+            if not (all(m in all_files for m in to_extract)):
+                msg = f'... some (or all) files are missing! Existing files will not be overwritten. ' \
+                    f'Terminating!'
                 logger.critical(msg)
                 return
-            msg = f'... all files were already extracted! Continuing...'
-            logger.warning(msg)
+            else:
+                if len(all_files) > len(to_extract):
+                    msg = f'There are more files ({len(all_files)}) under {extract_dir} ' \
+                        f'than the number of files to extract ({len(to_extract)}). Terminating!'
+                    logger.critical(msg)
+                    return
+                msg = f'... all files were already extracted! Continuing...'
+                logger.warning(msg)
+                
+        # files are ready to be read in...
+        h5ad_dir = Path(args.dest, 'h5ad')
+        h5ad_dir.mkdir(parents=True, exist_ok=False)
+        if not args.normalised:
+            raw = parse_fmt(
+                extract_dir,
+                observations,
+                filelist,
+                **kwargs
+            )
+            adata = ad.concat(
+                raw, 
+                join='outer', 
+                index_unique="-", 
+                label='batch', 
+                merge="same")
+            adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
             
-    # files are ready to be read in...
-    h5ad_dir = Path(args.dest, 'h5ad')
-    h5ad_dir.mkdir(parents=True, exist_ok=False)
-    if not args.normalised:
-        raw = parse_fmt(
-            extract_dir,
-            observations,
-            filelist,
-            **kwargs
-        )
-        adata = ad.concat(
-            raw, 
-            join='outer', 
-            index_unique="-", 
-            label='batch', 
-            merge="same")
-        adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
-        
-        if args.do_normalise:
+            if args.do_normalise:
+                pass
+            
+
+        else: # data is already normalised
             pass
+    else: 
+        # This section applies to bulk RNA data
+
+        # must be consistent with the order of required_files
+        filen = [f for f in filenames if required_files[0] in f][0]
+        bulkdata = pd.read_csv(
+            Path(args.dest, filen),
+            header=1,
+            comment='#',
+        )
+        filen = [f for f in filenames if required_files[1] in f][0]
+        observations = pd.read_csv(
+            Path(args.dest, filen),
+            sep='\t'
+        )
+        
         
 
-    else: # data is already normalised
-        pass
+
+
+
+
+
+        # Read data from bulk_input.csv
+
+        # TODO: CSV reader for both input files
+        if args.gene_info == 'ID':
+            # Only the gene ID is present
+            logger.debug('gene ID is present')
+
+            # TODO: map gene ID to gene name, add it to the dataframe
+            #server = BiomartServer( "http://www.biomart.org/biomart" )
+
+            gene_metadata = bulkdata.iloc[:,0]
+            sampledata = bulkdata.iloc[:,1:]
+            print(sampledata)
+            print(sampledata.shape)
+        if args.gene_info == 'name': 
+            # Only the gene name is present
+            logger.debug('gene name is present')
+
+        if args.gene_info == 'ID+name':
+            # Both the gene ID and name are present
+            logger.debug('gene ID and name are present')
+
+        else: 
+            # Unrecognized gene_info parameter
+            msg = f'Unrecognized gene_info parameter. '
+            logger.critical(msg)
         
-    
+        
+
+        if args.do_normalise:
+            # Data needs to be normalized, check for normalization method and normalize accordingly
+            if args.normalization_method == 'edgeR-TMM':
+                # edgeR's TMM normalization selected
+                # Defining the R script and loading the instance in Python
+                r = robjects.r
+                rootpath = Path(__file__).parent
+                filepath = str(Path(rootpath, 'R-normalization.R'))
+                print(filepath)
+                r['source'](filepath)
+                
+                # Load the function defined in R.
+                edgeR_TMM = robjects.globalenv['normalized_tmm_data']
+
+                # Convert it into an R object to pass into the R function
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    input_data_r = robjects.conversion.py2rpy(sampledata)
+                #input_data_r = pandas2ri.ri2py(bulkdata)
+
+                #Invoke the R function and get the result
+                df_result_r = edgeR_TMM(input_data_r)
+                #df_result_r = edgeR_TMM(bulkdata)
+
+                # Convert it back to a pandas dataframe.
+                #df_result = pandas2ri.py2ri(df_result_r)
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    df_result = robjects.conversion.rpy2py(df_result_r)
+                logger.debug(df_result)
+                print(df_result)
+                print(df_result.shape)
+
+            if args.normalization_method == 'deseq2':
+                # deseq2 normalization selected
+
+                # TODO: This is experimental, needs to be checked over
+
+                # Defining the R script and loading the instance in Python
+                r = robjects.r
+                r['source']('R-normalization.R')
+
+                # Load the function defined in R.
+                deseq2 = robjects.globalenv['normalized_deseq2_data']
+
+                # Convert it into an R object to pass into the R function
+                input_data_r = pandas2ri.ri2py(df)
+
+                #Invoke the R function and get the result
+                df_result_r = deseq2(input_data_r)
+
+                # Convert it back to a pandas dataframe.
+                df_result = pandas2ri.py2ri(df_result_r)
+                logger.debug(df_result)
+
+            if args.normalization_method == 'TPM':
+                # TPM normalization selected
+
+                # TODO: Implement TPM
+
+                # Returns since this isn't implemented right now
+                return
+            else: 
+                # Unsupported normalization method selected
+                msg = f'An unsupported normalization method was selected'
+                logger.critical(msg)
+                
+
+
+
+
+            # TODO: Write normalized data to the H5AD file. 
+            # TODO: Customize the next few lines of code to properly write the data
+
+
+            kwargs = {
+                'mex_gene': args.mex_gene,
+                'mex_barcode': args.mex_barcode,
+                'mex_matrix': args.mex_matrix,
+                'n_vars': args.mex_gene_ncols,
+                'var_names': args.mex_gene_var
+            }
+
+
+            # Write the h5ad file
+            h5ad_dir = Path(args.dest, 'h5ad')
+            h5ad_dir.mkdir(parents=True, exist_ok=False)
+            #raw = parse_fmt(
+            #        extract_dir,
+            #        observations,
+            #        filelist,
+            #        **kwargs
+            #    )
+            adata = ad.concat(
+                #raw, 
+                join='outer', 
+                index_unique="-", 
+                label='batch', 
+                merge="same")
+            adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
+            # Gene names go to adata.var_names and ids to a column "gene_id" in adata.var
+            # Actually, I think we also need to add (redundantly) a "gene_symbol" column ( i.e. adata.var_names).
+            # The actual matrix goes to adata.X (compressed to CSC format e.g. X = sp.sparse.csc_matrix(mat.T)). 
+            # The sample names should match those of observations.tab.gz - title, and will be the adata.obs_names.
+            # adata.obs can be populated from observations.tab.gz using minimally title, geo_accession, source_name_ch1, characteristics_ch1. 
+            # The field characteristics may contain multiple entries e.g. characteristics_ch1.1.cell type characteristics_ch1.2.age, etc.
+
+
+
+
+        else: 
+            # Data needs to be normalized, alert the user to the missing flag
+            msg = f'Data needs to be normalized when processing bulk data. Set the flag accordingly. '
+            logger.critical(msg)
+            return
     
 
-    
 if __name__ == '__main__':
     main()
     
