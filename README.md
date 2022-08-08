@@ -164,9 +164,9 @@ source ~/.virtualenvs/dhart_utils/bin/activate
 
 Pinned version of selected dependencies are listed in the _requirements.txt_ file for reproducible installation.
 
-## RNA bulk data processing
+## RNA bulk data download and processing
 
-`accession.py` works for downloading bulk RNA data. When processing bulk data, the following flags are important to set in `wrangling.py`:
+`accession.py` can download bulk RNA data. When processing bulk data, the following flags are important to set in `wrangling.py`:
 
 - `-b, --bulk`
 - `--do-normalise`
@@ -185,25 +185,26 @@ Data schmeme choices include the following:
 Please conform input data to one of the following schemes:
 
 'ID':
-| ID | <gene#1> | ... | <gene#n> |
-|----|----------|-----|----------|
-|    |          | No  |          |
-|    |          | Yes |          |
-|    |          | Yes |          |
+| ID | <sample#1> | ... | <sample#n> |
+|----|------------|-----|------------|
+|    | 1.343      | ... | 1.472      |
+|    | 2.872      | ... | 3.971      |
+|    | 1.341      | ... | 1.349      |
 
 'name':
-| name | <gene#1> | ... | <gene#n> |
-|------|----------|-----|----------|
-|      |          |     |          |
-|      |          |     |          |
-|      |          |     |          |
+| name | <sample#1> | ... | <sample#n> |
+|------|------------|-----|------------|
+|      | 1.343      | ... | 1.472      |
+|      | 2.872      | ... | 3.971      |
+|      | 1.341      | ... | 1.349      |
 
 'ID+name':
-| ID | name | <gene#1> | ... | <gene#n> |
-|----|------|----------|-----|----------|
-|    |      |          |     |          |
-|    |      |          |     |          |
-|    |      |          |     |          |
+| ID | name | <sample#1> | ... | <sample#n> |
+|----|------|------------|-----|------------|
+|    |      |            |     |            |
+|    |      | 1.343      | ... | 1.472      |
+|    |      | 2.872      | ... | 3.971      |
+|    |      | 1.341      | ... | 1.349      |
 
 ## Running the tests
 
