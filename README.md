@@ -60,6 +60,18 @@ The following parameters are supported:
 
 - default='adata'
 
+`-b, --bulk`: Specifies whether input file is bulk or single-cell data.
+
+`--gene-info`: Indicate presence of gene ID and/or gene name.
+
+- default='ID'
+
+choices:
+
+- 'ID'
+- 'name'
+- 'ID+name'
+
 `-fmt, --input-format`: Input format: either MEX (e.g. TSV and MTX), or TXT (e.g. TXT, TSV, or CSV). Market Exchange (MEX) format is for gene-barcode matrix output from Cell Ranger; TXT format is for read count matrices (single file, genes x barcodes/wells).
 
 choices:
@@ -95,7 +107,7 @@ choices:
 choices:
 
 - 'gene_symbol'
-- 'gene_id']
+- 'gene_id'
 
 `--txt-ext`: Extension that indicates the file type. If None, uses extension of filename, see the anndata read_txt function. Silently ignored if [--input-format MEX].
 
@@ -124,9 +136,19 @@ Silently ignored if [--input-format MEX].
 
 `--do-normalise`: If this flag is present, then output is also written as normalised, in addition to raw. Input files must be raw.
 
+`--normalization-method`: Set the normalization method. Flag is silently ignored if --do-normalize isn't set.
+
+- default='edgeR-TMM'
+
+choices:
+
+- 'edgeR-TMM'
+- 'deseq2'
+- 'TPM'
+
 ## Installation
 
-This repository is currently not *installable* ( *i.e.* it is not a package ). 
+This repository is currently not *installable* ( *i.e.* it is not a package ).
 
 
 ```bash
@@ -142,6 +164,46 @@ source ~/.virtualenvs/dhart_utils/bin/activate
 
 Pinned version of selected dependencies are listed in the _requirements.txt_ file for reproducible installation.
 
+## RNA bulk data processing
+
+`accession.py` works for downloading bulk RNA data. When processing bulk data, the following flags are important to set in `wrangling.py`:
+
+- `-b, --bulk`
+- `--do-normalise`
+- `--gene-info`
+
+The `-b` or `--bulk` flag needs to be provided along with the `--do-normalise` flag. Using the `--gene-info` flag, the data scheme needs to be set. Please find data scheme options below. Data can only be read if it conforms to one of the provided data schemes. Using the `--normalization-method` flag, a normalization method can be specified. `edgeR-TMM`, `deseq2` and `TPM` are all valid normalization methods, `edgeR-TMM` being the default. This flag is optional. A bundle of `observations.tab.gz` and the bulk data in a file named `bulk_input.csv` needs to be submitted for each dataset. `observations.tab.gz` is provided by when downloading data using `accession.py`.
+
+### Data Schemes
+
+Data schmeme choices include the following:
+
+- 'ID': Inlcudes just the gene ID, this is later used to look up the gene name. Both fields are then written to the H5AD file.
+- 'name': Includes just the gene name.
+- 'ID+name': Both the gene name and gene ID are already present in the input scheme, both will be written to the H5AD file. 
+
+Please conform input data to one of the following schemes:
+
+'ID':
+| ID | <gene#1> | ... | <gene#n> |
+|----|----------|-----|----------|
+|    |          | No  |          |
+|    |          | Yes |          |
+|    |          | Yes |          |
+
+'name':
+| name | <gene#1> | ... | <gene#n> |
+|------|----------|-----|----------|
+|      |          |     |          |
+|      |          |     |          |
+|      |          |     |          |
+
+'ID+name':
+| ID | name | <gene#1> | ... | <gene#n> |
+|----|------|----------|-----|----------|
+|    |      |          |     |          |
+|    |      |          |     |          |
+|    |      |          |     |          |
 
 ## Running the tests
 
