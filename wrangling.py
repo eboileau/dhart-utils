@@ -45,6 +45,11 @@ def main():
     parser.add_argument('-b', '--bulk', help="""Specifies whether input file is bulk or single-cell data.""", 
                         action='store_true')
 
+    parser.add_argument('--species', help="""Specifies the species to be used for missing gene ID or gene name info in bulk data. 
+                        If both gene ID and name are provided, this is silently ignored. 
+                        This is also silently ignored, if the -b flag isn't set. The default value is human. """, 
+                        type=str, default='human')
+
     parser.add_argument('--gene-info', help="""Indicate presence of gene ID and/or gene name.""", type=str, 
                         default='ID', choices=['ID', 'name', 'ID+name'])
     
@@ -52,7 +57,7 @@ def main():
                         and MTX), or TXT (e.g. TXT, TSV, or CSV). Market Exchange (MEX) format
                         is for gene-barcode matrix output from Cell Ranger; TXT format is 
                         for read count matrices (single file, genes x barcodes/wells).""", 
-                        type=str, choices=['MEX', 'TXT'], required=True)
+                        type=str, choices=['MEX', 'TXT']) # This may be reintroduced for scRNA processing only: , required=True
     
     parser.add_argument('--mex-gene', help="""File name pattern, typically "features" or
                         "genes", used with [--input-format MEX]. Silently ignored if
