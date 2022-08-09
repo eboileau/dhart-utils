@@ -73,6 +73,10 @@ The following parameters are supported:
 
 `-b, --bulk`: Specifies whether input file is bulk or single-cell data.
 
+`--species`: Specifies the species to be used for missing gene ID or gene name info in bulk data. If both gene ID and name are provided, this is silently ignored. This is also silently ignored, if the -b flag isn't set.
+
+- default='human'
+
 `--gene-info`: Indicate presence of gene ID and/or gene name.
 
 - default='ID'
