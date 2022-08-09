@@ -13,6 +13,17 @@ The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEA
 
 ## Quickstart
 
+### Dependencies
+
+When using this library without docker, the following dependencies need to be installed on your system: 
+
+- R version 4.2.x
+- Python 3.9.5
+- pandas
+- anndata
+- rpy2
+- dependencies from requirements.txt
+
 ### accession.py
 
 This script is used to download GEO Series and will prepare the data for ingestion into DHART.
