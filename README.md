@@ -22,7 +22,9 @@ When using this library without docker, the following dependencies need to be in
 - pandas
 - anndata
 - rpy2
-- dependencies from requirements.txt
+- dependencies from requirements.txt and R-dependencies.R
+
+Dependency files can be found in the folder [dependencies](./dependencies/).
 
 ### accession.py
 

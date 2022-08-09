@@ -1,10 +1,4 @@
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install(version = "3.15")
-
-BiocManager::install("edgeR")
-BiocManager::install("DESeq2")
-
+# TODO: Next two lines can be removed if individual functions are called from libraries
 library(edgeR)
 library(DESeq2)
 
