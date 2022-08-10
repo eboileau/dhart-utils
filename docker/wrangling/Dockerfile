@@ -24,8 +24,17 @@ ENV annotation='Ensembl'
 # Update the package repository
 RUN apt update
 
+# TODO: Install R
+
+# TODO: Install R dependencies
+
 # Install needed packages
 RUN pip install rpy2
+RUN pip install scipy
+RUN pip install pandas
+RUN pip install anndata
+RUN pip install mygene
+RUN pip install bioinfokit
 
 # Install git to be able to clone the DHART repo in the next step
 RUN apt install -y git
