@@ -10,18 +10,18 @@ The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEA
 
     This repository is currently under development.
 
-
 ## Quickstart
 
 ### Dependencies
 
-When using this library without docker, the following dependencies need to be installed on your system: 
+When using this library without docker, the following dependencies need to be installed on your system:
 
 - R version 4.2.x
 - Python 3.9.5
 - pandas
 - anndata
 - rpy2
+- mygene
 - dependencies from requirements.txt and R-dependencies.R
 
 Dependency files can be found in the folder [dependencies](./dependencies/).
@@ -190,6 +190,8 @@ Pinned version of selected dependencies are listed in the _requirements.txt_ fil
 - `--gene-info`
 
 The `-b` or `--bulk` flag needs to be provided along with the `--do-normalise` flag. Using the `--gene-info` flag, the data scheme needs to be set. Please find data scheme options below. Data can only be read if it conforms to one of the provided data schemes. Using the `--normalization-method` flag, a normalization method can be specified. `edgeR-TMM`, `deseq2` and `TPM` are all valid normalization methods, `edgeR-TMM` being the default. This flag is optional. A bundle of `observations.tab.gz` and the bulk data in a file named `bulk_input.csv` needs to be submitted for each dataset. `observations.tab.gz` is provided by when downloading data using `accession.py`.
+
+When processing data using TPM normalization, a column needs to be titled "length" and must contain gene length information. This can't be within the metadata section, i.e. the first one or two columns, depending on the data scheme used. See Data Schemes for details.
 
 ### Data Schemes
 
