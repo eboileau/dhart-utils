@@ -37,7 +37,7 @@ normalized_deseq2_data <- function(input_data) {
   return(output_matrix)
 }
 
-normalized_tpm_data(input_data, gene_length) {
+normalized_tpm_data <- function(input_data, gene_length) {
   #'
   #' This function normalizes data using TPM,
   #' then passes the normalized data back.
