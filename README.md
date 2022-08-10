@@ -89,6 +89,10 @@ choices:
 - 'name'
 - 'ID+name'
 
+`--gene-info-id`: Provide input gene types as defined by mygene. The default value is ensembl.gene, hence ensembl is assumed as the standard input format.
+
+- default='ensembl.gene'
+
 `-fmt, --input-format`: Input format: either MEX (e.g. TSV and MTX), or TXT (e.g. TXT, TSV, or CSV). Market Exchange (MEX) format is for gene-barcode matrix output from Cell Ranger; TXT format is for read count matrices (single file, genes x barcodes/wells).
 
 choices:
