@@ -321,19 +321,17 @@ def main():
             gene_metadata_list = gene_metadata_series.tolist()
             species_from_args = args.species
 
+            # Run the mygene query
             mygene_query_result = mg.querymany(gene_metadata_list, scopes=gene_format, fields='symbol,'+gene_format, species=species_from_args, as_dataframe=True)
 
-            matching_table = mygene_query_result[[gene_format, "symbol"]]
+            # Extract just the symbols from the query result
+            matching_table = mygene_query_result["symbol"]
             
-            #df["Subjects"] = df["first_name"].map(Subjects)
-
-            print(gene_metadata)
-
-            gene_metadata["name"] = gene_metadata["ID"].map(matching_table[gene_format])
-
-            print(mygene_query_result)
-            print(gene_metadata)
-
+            # Map the symbols to the existing metadata table
+            gene_metadata["name"] = gene_metadata["ID"].map(matching_table)
+            
+            logger.debug(gene_metadata)
+            logger.debug('gene_metadata shape: ' + str(gene_metadata.shape))
 
 
         if args.gene_info == 'name': 
@@ -353,16 +351,11 @@ def main():
 
             matching_table = mygene_query_result[["ensembl.gene", "symbol"]]
             
-            #df["Subjects"] = df["first_name"].map(Subjects)
+            # Map the symbols to the existing metadata table
+            gene_metadata["ID"] = gene_metadata["name"].map(matching_table)
 
-            gene_metadata["ID"] = gene_metadata["name"].map(matching_table["symbol"])
-
-            print(mygene_query_result)
-            print(gene_metadata)
-
-
-
-
+            logger.debug(gene_metadata)
+            logger.debug('gene_metadata shape: ' + str(gene_metadata.shape))
 
         if args.gene_info == 'ID+name':
             # Both the gene ID and name are present
