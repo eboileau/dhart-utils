@@ -9,9 +9,9 @@ normalized_tmm_data <- function(input_data) {
   #'
   #' @param input_data The input data passed into the function
   #
-
-  dge <- calcNormFactors(input_data, method = "TMM")
-  edger_tmm_normalized_data <- cpm(dge)
+  dgList <- DGEList(counts=input_data)
+  dgList <- calcNormFactors(dgList, method="TMM")
+  edger_tmm_normalized_data <- cpm(dgList, normalized.lib.sizes=TRUE) # Obtain the absolute TMM values of the data
 
   return(edger_tmm_normalized_data)
 }
@@ -26,7 +26,9 @@ normalized_deseq2_data <- function(input_data) {
   #
 
   ## Create DESeq2Dataset object
-  deseq2_normalized_data <- DESeqDataSetFromMatrix(countData = input_data, colData = meta, design = ~ sampletype)
+  dds <- DESeqDataSetFromMatrix(countData = input_data)
+  dds <- estimateSizeFactors(dds)
+  deseq2_normalized_data <- counts(dds, normalized=TRUE)
 
   return(deseq2_normalized_data)
 }

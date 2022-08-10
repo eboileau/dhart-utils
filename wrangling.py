@@ -15,17 +15,16 @@ import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects.packages import importr
-from biomart import BiomartServer
+import scipy as sc
+import pandas as pd
+import anndata as ad
+import utils.utils as utils
+import utils.data_utils as data_utils
 
 import tarfile
 from pathlib import Path
 from paths import PROJECT_ROOT
 UTILS_PATH = PROJECT_ROOT / 'utils'
-
-import pandas as pd
-import anndata as ad
-import utils.utils as utils
-import utils.data_utils as data_utils
 
 logger = logging.getLogger(__name__)
 
@@ -328,13 +327,14 @@ def main():
 
         if args.do_normalise:
             # Data needs to be normalized, check for normalization method and normalize accordingly
+            # Defining the R script and loading the instance in Python
+            r = robjects.r
+            rootpath = Path(__file__).parent
+            filepath = str(Path(rootpath, 'R-normalization.R'))
+            print(filepath)
+
             if args.normalization_method == 'edgeR-TMM':
                 # edgeR's TMM normalization selected
-                # Defining the R script and loading the instance in Python
-                r = robjects.r
-                rootpath = Path(__file__).parent
-                filepath = str(Path(rootpath, 'R-normalization.R'))
-                print(filepath)
                 r['source'](filepath)
                 
                 # Load the function defined in R.
@@ -343,14 +343,11 @@ def main():
                 # Convert it into an R object to pass into the R function
                 with localconverter(robjects.default_converter + pandas2ri.converter):
                     input_data_r = robjects.conversion.py2rpy(sampledata)
-                #input_data_r = pandas2ri.ri2py(bulkdata)
-
+                
                 #Invoke the R function and get the result
                 df_result_r = edgeR_TMM(input_data_r)
-                #df_result_r = edgeR_TMM(bulkdata)
-
+                
                 # Convert it back to a pandas dataframe.
-                #df_result = pandas2ri.py2ri(df_result_r)
                 with localconverter(robjects.default_converter + pandas2ri.converter):
                     df_result = robjects.conversion.rpy2py(df_result_r)
                 logger.debug(df_result)
@@ -364,20 +361,24 @@ def main():
 
                 # Defining the R script and loading the instance in Python
                 r = robjects.r
-                r['source']('R-normalization.R')
+                r['source'](filepath)
 
                 # Load the function defined in R.
                 deseq2 = robjects.globalenv['normalized_deseq2_data']
 
                 # Convert it into an R object to pass into the R function
-                input_data_r = pandas2ri.ri2py(df)
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    input_data_r = robjects.conversion.py2rpy(sampledata)
 
                 #Invoke the R function and get the result
                 df_result_r = deseq2(input_data_r)
 
                 # Convert it back to a pandas dataframe.
-                df_result = pandas2ri.py2ri(df_result_r)
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    df_result = robjects.conversion.rpy2py(df_result_r)
                 logger.debug(df_result)
+                print(df_result)
+                print(df_result.shape)
 
             if args.normalization_method == 'TPM':
                 # TPM normalization selected
@@ -433,6 +434,18 @@ def main():
 
 
 
+            # Remove comment: New Stuff
+            X = sc.sparse.csc_matrix(df_result) # mat is your matrix of counts normalized, etc.
+            adata = ad.AnnData(X)
+            adata.var_names = gene_names # here features are e.g. gene names/symbols
+            adata.var_names_make_unique('_')
+            adata.var['gene_symbol'] = gene_names
+            adata.var['gene_id'] = gene_ids
+
+
+            # Now for the observations:
+            adata.obs_names = obs_names # these are the sample names, they should match the column names from the count matrix, and I think the `title` from observations.tab.gz
+            adata.obs = obs # where obs is a dataframe with observations from observations.tab.gz, where you selected the relevant entries
 
         else: 
             # Data needs to be normalized, alert the user to the missing flag
