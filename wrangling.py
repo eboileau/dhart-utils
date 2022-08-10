@@ -16,10 +16,10 @@ from rpy2.robjects import pandas2ri
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects.packages import importr
 import scipy as sc
-import pandas as pd
 import anndata as ad
 import utils.utils as utils
 import utils.data_utils as data_utils
+import mygene
 
 import tarfile
 from pathlib import Path
@@ -51,6 +51,10 @@ def main():
 
     parser.add_argument('--gene-info', help="""Indicate presence of gene ID and/or gene name.""", type=str, 
                         default='ID', choices=['ID', 'name', 'ID+name'])
+
+    parser.add_argument('--gene-info-id', help="""Provide input gene types as defined by mygene. 
+                        The default value is ensembl.gene, hence ensembl is assumed as the standard input format.""", 
+                        type=str, default='ensembl.gene')
     
     parser.add_argument('-fmt', '--input-format', help="""Input format: either MEX (e.g. TSV
                         and MTX), or TXT (e.g. TXT, TSV, or CSV). Market Exchange (MEX) format
@@ -280,7 +284,7 @@ def main():
         filen = [f for f in filenames if required_files[0] in f][0]
         bulkdata = pd.read_csv(
             Path(args.dest, filen),
-            header=1,
+            header=0,
             comment='#',
         )
         filen = [f for f in filenames if required_files[1] in f][0]
@@ -296,27 +300,77 @@ def main():
 
 
 
+
+
         # Read data from bulk_input.csv
 
-        # TODO: CSV reader for both input files
+        # TODO: CSV reader for both input files (observations.tab.gz)
+
         if args.gene_info == 'ID':
             # Only the gene ID is present
             logger.debug('gene ID is present')
 
-            # TODO: map gene ID to gene name, add it to the dataframe
-            #server = BiomartServer( "http://www.biomart.org/biomart" )
-
-            gene_metadata = bulkdata.iloc[:,0]
+            gene_metadata = bulkdata.iloc[:,[0]]
+            gene_metadata_series = bulkdata.iloc[:,0]
             sampledata = bulkdata.iloc[:,1:]
-            print(sampledata)
-            print(sampledata.shape)
+            print("input data shape: " + str(sampledata.shape))
+
+            gene_format = args.gene_info_id
+
+            mg = mygene.MyGeneInfo()
+            gene_metadata_list = gene_metadata_series.tolist()
+            species_from_args = args.species
+
+            mygene_query_result = mg.querymany(gene_metadata_list, scopes=gene_format, fields='symbol,'+gene_format, species=species_from_args, as_dataframe=True)
+
+            matching_table = mygene_query_result[[gene_format, "symbol"]]
+            
+            #df["Subjects"] = df["first_name"].map(Subjects)
+
+            print(gene_metadata)
+
+            gene_metadata["name"] = gene_metadata["ID"].map(matching_table[gene_format])
+
+            print(mygene_query_result)
+            print(gene_metadata)
+
+
+
         if args.gene_info == 'name': 
             # Only the gene name is present
             logger.debug('gene name is present')
 
+            gene_metadata = bulkdata.iloc[:,[0]]
+            gene_metadata_series = bulkdata.iloc[:,0]
+            sampledata = bulkdata.iloc[:,1:]
+            print("input data shape: " + str(sampledata.shape))
+
+            mg = mygene.MyGeneInfo()
+            gene_metadata_list = gene_metadata_series.tolist()
+            species_from_args = args.species
+
+            mygene_query_result = mg.querymany(gene_metadata_list, scopes='symbol', fields='symbol,ensembl.gene', species=species_from_args, as_dataframe=True)
+
+            matching_table = mygene_query_result[["ensembl.gene", "symbol"]]
+            
+            #df["Subjects"] = df["first_name"].map(Subjects)
+
+            gene_metadata["ID"] = gene_metadata["name"].map(matching_table["symbol"])
+
+            print(mygene_query_result)
+            print(gene_metadata)
+
+
+
+
+
         if args.gene_info == 'ID+name':
             # Both the gene ID and name are present
             logger.debug('gene ID and name are present')
+
+            gene_metadata = bulkdata.iloc[:,0:2]
+            sampledata = bulkdata.iloc[:,2:]
+            print("input data shape: " + sampledata.shape)
 
         else: 
             # Unrecognized gene_info parameter
@@ -350,6 +404,7 @@ def main():
                 # Convert it back to a pandas dataframe.
                 with localconverter(robjects.default_converter + pandas2ri.converter):
                     df_result = robjects.conversion.rpy2py(df_result_r)
+                
                 logger.debug(df_result)
                 print(df_result)
                 print(df_result.shape)
@@ -376,6 +431,7 @@ def main():
                 # Convert it back to a pandas dataframe.
                 with localconverter(robjects.default_converter + pandas2ri.converter):
                     df_result = robjects.conversion.rpy2py(df_result_r)
+
                 logger.debug(df_result)
                 print(df_result)
                 print(df_result.shape)
@@ -383,10 +439,38 @@ def main():
             if args.normalization_method == 'TPM':
                 # TPM normalization selected
 
-                # TODO: Implement TPM
+                # Check if length information is present
+                if 'length' in sampledata.columns:
+                    lengthdata = sampledata["length"]
+                else: 
+                    logger.critical("Column named \"length\" must be present and must contain gene lenght information when using TPM. ")
+                
+                # Remove length data from sample for clean sample data
+                sampledata = sampledata.drop('length', axis=1)
 
-                # Returns since this isn't implemented right now
-                return
+                r['source'](filepath)
+                
+                # Load the function defined in R.
+                TPM = robjects.globalenv['normalized_tpm_data']
+
+                # Convert it into an R object to pass into the R function
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    input_data_r = robjects.conversion.py2rpy(sampledata)
+                
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    length_data_r = robjects.conversion.py2rpy(lengthdata)
+
+                #Invoke the R function and get the result
+                df_result_r = TPM(input_data_r, length_data_r)
+                
+                # Convert it back to a pandas dataframe.
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    df_result = robjects.conversion.rpy2py(df_result_r)
+
+                logger.debug(df_result)
+                print(df_result)
+                print(df_result.shape)
+
             else: 
                 # Unsupported normalization method selected
                 msg = f'An unsupported normalization method was selected'
