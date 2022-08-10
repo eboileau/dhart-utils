@@ -1,4 +1,3 @@
-# TODO: Next two lines can be removed if individual functions are called from libraries
 library(edgeR)
 library(DESeq2)
 
@@ -23,18 +22,16 @@ normalized_deseq2_data <- function(input_data) {
   #' then passes the normalized data back.
   #'
   #' @param input_data The input data passed into the function
-  #
+  #  
 
-  ## Create DESeq2Dataset object
-  dds <- estimateSizeFactorsForMatrix(counts(input_data))
+  meta_data <- data.frame(matrix(NA, nrow = ncol(input_data), ncol = 1))
+  rownames(meta_data) <- colnames(input_data)
 
-  #dds <- DESeqDataSetFromMatrix(countData = input_data)
-  #dds <- estimateSizeFactors(dds)
+  dds <- DESeqDataSetFromMatrix(countData = round(input_data), colData = meta_data, design=~1)
+  dds <- estimateSizeFactors(dds)
   deseq2_normalized_data <- counts(dds, normalized=TRUE)
 
-  output_matrix <- input_data %*% deseq2_normalized_data
-
-  return(output_matrix)
+  return(deseq2_normalized_data)
 }
 
 normalized_tpm_data <- function(input_data, gene_length) {

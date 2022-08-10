@@ -363,7 +363,7 @@ def main():
 
             gene_metadata = bulkdata.iloc[:,0:2]
             sampledata = bulkdata.iloc[:,2:]
-            print("input data shape: " + sampledata.shape)
+            print("input data shape: " + str(sampledata.shape))
 
         else: 
             # Unrecognized gene_info parameter
@@ -404,8 +404,6 @@ def main():
 
             if args.normalization_method == 'deseq2':
                 # deseq2 normalization selected
-
-                # TODO: This is experimental, needs to be checked over
 
                 # Defining the R script and loading the instance in Python
                 r = robjects.r
@@ -468,39 +466,24 @@ def main():
                 # Unsupported normalization method selected
                 msg = f'An unsupported normalization method was selected'
                 logger.critical(msg)
-                
-
-
-
-
-            # TODO: Write normalized data to the H5AD file. 
-            # TODO: Customize the next few lines of code to properly write the data
-
-
-            kwargs = {
-                'mex_gene': args.mex_gene,
-                'mex_barcode': args.mex_barcode,
-                'mex_matrix': args.mex_matrix,
-                'n_vars': args.mex_gene_ncols,
-                'var_names': args.mex_gene_var
-            }
-
-
+            
             # Write the h5ad file
             h5ad_dir = Path(args.dest, 'h5ad')
             h5ad_dir.mkdir(parents=True, exist_ok=False)
-            #raw = parse_fmt(
-            #        extract_dir,
-            #        observations,
-            #        filelist,
-            #        **kwargs
-            #    )
-            adata = ad.concat(
-                #raw, 
-                join='outer', 
-                index_unique="-", 
-                label='batch', 
-                merge="same")
+            
+            X = sc.sparse.csc_matrix(df_result) # mat is your matrix of counts normalized, etc.
+            adata = ad.AnnData(X)
+            adata.var_names = gene_metadata['name'] # here features are e.g. gene names/symbols
+            adata.var_names_make_unique('_')
+            adata.var['gene_symbol'] = gene_metadata['name']
+            adata.var['gene_id'] = gene_metadata['ID']
+
+
+            # Now for the observations:
+            adata.obs_names = obs_names # these are the sample names, they should match the column names from the count matrix, and I think the `title` from observations.tab.gz
+            adata.obs = obs # where obs is a dataframe with observations from observations.tab.gz, where you selected the relevant entries
+
+
             adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
             # Gene names go to adata.var_names and ids to a column "gene_id" in adata.var
             # Actually, I think we also need to add (redundantly) a "gene_symbol" column ( i.e. adata.var_names).
@@ -508,21 +491,6 @@ def main():
             # The sample names should match those of observations.tab.gz - title, and will be the adata.obs_names.
             # adata.obs can be populated from observations.tab.gz using minimally title, geo_accession, source_name_ch1, characteristics_ch1. 
             # The field characteristics may contain multiple entries e.g. characteristics_ch1.1.cell type characteristics_ch1.2.age, etc.
-
-
-
-            # Remove comment: New Stuff
-            X = sc.sparse.csc_matrix(df_result) # mat is your matrix of counts normalized, etc.
-            adata = ad.AnnData(X)
-            adata.var_names = gene_names # here features are e.g. gene names/symbols
-            adata.var_names_make_unique('_')
-            adata.var['gene_symbol'] = gene_names
-            adata.var['gene_id'] = gene_ids
-
-
-            # Now for the observations:
-            adata.obs_names = obs_names # these are the sample names, they should match the column names from the count matrix, and I think the `title` from observations.tab.gz
-            adata.obs = obs # where obs is a dataframe with observations from observations.tab.gz, where you selected the relevant entries
 
         else: 
             # Data needs to be normalized, alert the user to the missing flag
