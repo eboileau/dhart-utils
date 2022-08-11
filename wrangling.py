@@ -326,7 +326,7 @@ def main():
 
             # Extract just the symbols from the query result
             matching_table = mygene_query_result["symbol"]
-            
+
             # Map the symbols to the existing metadata table
             gene_metadata["name"] = gene_metadata["ID"].map(matching_table)
             
@@ -341,18 +341,27 @@ def main():
             gene_metadata = bulkdata.iloc[:,[0]]
             gene_metadata_series = bulkdata.iloc[:,0]
             sampledata = bulkdata.iloc[:,1:]
-            print("input data shape: " + str(sampledata.shape))
+            logger.debug('input data shape: ' + str(sampledata.shape))
 
             mg = mygene.MyGeneInfo()
             gene_metadata_list = gene_metadata_series.tolist()
             species_from_args = args.species
 
-            mygene_query_result = mg.querymany(gene_metadata_list, scopes='symbol', fields='symbol,ensembl.gene', species=species_from_args, as_dataframe=True)
+            mygene_query_result = mg.querymany(gene_metadata_list, scopes='symbol', fields='ensembl.gene', species=species_from_args, as_dataframe=True)
 
-            matching_table = mygene_query_result[["ensembl.gene", "symbol"]]
+            matching_table = mygene_query_result[["ensembl.gene"]]
+
+            # Move symbols to their own column
+            matching_table = matching_table.reset_index(level=0)
             
+            matching_table = matching_table.rename(columns={'ensembl.gene': 'ID'})
+
+            gene_metadata = (gene_metadata.merge(matching_table, left_on='name', right_on='query').reindex(columns=['ID', 'name']))
+
             # Map the symbols to the existing metadata table
-            gene_metadata["ID"] = gene_metadata["name"].map(matching_table)
+            # This could be used to drop duplicates, however different IDs for symbols would then be lost. Merge above is preferred for now. 
+            #matching_table = matching_table.rename(columns={'query': 'name'})
+            #gene_metadata["ID"] = gene_metadata["name"].map(matching_table.drop_duplicates('name'))
 
             logger.debug(gene_metadata)
             logger.debug('gene_metadata shape: ' + str(gene_metadata.shape))
