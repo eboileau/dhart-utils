@@ -12,6 +12,18 @@ The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEA
 
 ## Quickstart
 
+### Docker
+This software is supplied in a Docker image. Docker images enable the user to easily deploy software without any dependency tree issues. Since DHART utils isn't hosted in an image registry, the image needs to be built from the Dockerfile.
+To do so, execute the following command from the root directory:
+
+- accession: `docker build -t accession -f ./docker/accession/Dockerfile .`
+- wrangling: `docker build -t wrangling -f ./docker/wrangling/Dockerfile .`
+
+Once the image is built, it can then be launched by running the following command:
+
+- accession: `docker run accession`
+- wrangling: `docker run wrangling`
+
 ### Dependencies
 
 When using this library without docker, the following dependencies need to be installed on your system:

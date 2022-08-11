@@ -11,7 +11,24 @@ RUN pip install anndata
 RUN pip install mygene
 
 # Install R
-RUN apt-get update && apt-get install -y r-base
+RUN apt install -y dirmngr --install-recommends
+RUN apt install -y software-properties-common
+RUN apt install -y apt-transport-https
+
+RUN apt --fix-broken install
+RUN apt autoremove
+
+
+
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'
+RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bullseye-cran40/'
+
+RUN apt-get update
+RUN apt-get upgrade
+RUN apt-get install r-base-dev
+
+#RUN apt-get update
+#RUN apt-get install -y r-base
 
 # Install git to be able to clone the DHART repo in the next step
 RUN apt install -y git
@@ -20,11 +37,14 @@ RUN apt install -y git
 RUN git clone https://github.com/eboileau/dhart-utils.git
 
 # Install R dependencies
-COPY ./R-dependencies.r ./R-dependencies.r
-RUN Rscript ./R-dependencies.r
+COPY /dependencies/R-dependencies.r /dependencies/R-dependencies.r 
+COPY /dependencies/requirements.txt /dependencies/requirements.txt
+
+RUN Rscript /dependencies/R-dependencies.r
+RUN pip install -r /dependencies/requirements.txt
 
 # copy handler script
 RUN mkdir /root/bin
-COPY ./wrangling.py /root/bin/wrangling.py
+COPY wrangling.py /root/bin/wrangling.py
 
 ENTRYPOINT [ "python3", "/root/bin/wrangling.py" ]

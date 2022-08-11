@@ -467,7 +467,7 @@ def main():
             
             # Write the h5ad file
             h5ad_dir = Path(args.dest, 'h5ad')
-            #h5ad_dir.mkdir(parents=True, exist_ok=False)
+            h5ad_dir.mkdir(parents=True, exist_ok=False)
             
             X = sc.sparse.csc_matrix(df_result) # mat is your matrix of counts normalized, etc.
             adata = ad.AnnData(X.T)
