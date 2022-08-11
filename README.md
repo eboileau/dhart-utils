@@ -153,7 +153,6 @@ Silently ignored if [--input-format MEX].
 - default=''
 
 `--normalised`: If this flag is present, then files are treated as normalised input.
-    # TODO: if input is normalised, what do we do?
 
 `--do-normalise`: If this flag is present, then output is also written as normalised, in addition to raw. Input files must be raw.
 

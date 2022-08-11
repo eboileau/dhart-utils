@@ -5,6 +5,7 @@
 """
 
 from ast import arg
+import string
 import sys
 import logging
 import argparse
@@ -293,19 +294,7 @@ def main():
             sep='\t'
         )
         
-        
-
-
-
-
-
-
-
-
         # Read data from bulk_input.csv
-
-        # TODO: CSV reader for both input files (observations.tab.gz)
-
         if args.gene_info == 'ID':
             # Only the gene ID is present
             logger.debug('gene ID is present')
@@ -478,29 +467,47 @@ def main():
             
             # Write the h5ad file
             h5ad_dir = Path(args.dest, 'h5ad')
-            h5ad_dir.mkdir(parents=True, exist_ok=False)
+            #h5ad_dir.mkdir(parents=True, exist_ok=False)
             
             X = sc.sparse.csc_matrix(df_result) # mat is your matrix of counts normalized, etc.
-            adata = ad.AnnData(X)
-            adata.var_names = gene_metadata['name'] # here features are e.g. gene names/symbols
-            adata.var_names_make_unique('_')
-            adata.var['gene_symbol'] = gene_metadata['name']
-            adata.var['gene_id'] = gene_metadata['ID']
+            adata = ad.AnnData(X.T)
+            adata.var_names = gene_metadata['name'].astype(str) # here features are e.g. gene names/symbols
+            adata.obs_names = sampledata.columns.astype(str)
+            
+            adata.var_names_make_unique()
+            adata.obs_names_make_unique()
+            
+            # TODO: This causes an error, fix it! 
+            #adata.var['gene_symbol'] = gene_metadata['name'].astype(str)
+            #adata.var['gene_id'] = gene_metadata['ID'].astype(str)
 
+            # Sort the lists to create equal lists, if the same data is present
+            sampledata_headers_list = sampledata.columns.to_list()
+            observations_list = observations['title'].to_list()
 
-            # Now for the observations:
-            adata.obs_names = obs_names # these are the sample names, they should match the column names from the count matrix, and I think the `title` from observations.tab.gz
-            adata.obs = obs # where obs is a dataframe with observations from observations.tab.gz, where you selected the relevant entries
+            sampledata_headers_list = sampledata_headers_list.sort() 
+            observations_list = observations_list.sort() 
 
+            if sampledata_headers_list != observations_list: 
+                logger.critical('count matrix columns do not match observations.tab.gz dataset. Make sure all of the data is present!')
+                print('count matrix columns do not match observations.tab.gz dataset. Make sure all of the data is present!')
 
-            adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
-            # Gene names go to adata.var_names and ids to a column "gene_id" in adata.var
-            # Actually, I think we also need to add (redundantly) a "gene_symbol" column ( i.e. adata.var_names).
-            # The actual matrix goes to adata.X (compressed to CSC format e.g. X = sp.sparse.csc_matrix(mat.T)). 
-            # The sample names should match those of observations.tab.gz - title, and will be the adata.obs_names.
+            # Observations.tab.gz
+            # Select the relevant information
             # adata.obs can be populated from observations.tab.gz using minimally title, geo_accession, source_name_ch1, characteristics_ch1. 
             # The field characteristics may contain multiple entries e.g. characteristics_ch1.1.cell type characteristics_ch1.2.age, etc.
 
+            # First get all the columns containing 'characteristics_ch1'
+            characteristics_ch1_cols: list[str] = [col for col in observations.columns if 'characteristics_ch1' in col]
+            headers_to_find = ['title','geo_accession','source_name_ch1'] + characteristics_ch1_cols
+            obs = observations[headers_to_find]
+            print(obs)
+
+            adata.obs_names = sampledata.columns # these are the sample names, they should match the column names from the count matrix, and the `title` from observations.tab.gz
+            adata.obs = obs # obs is a dataframe with observations from observations.tab.gz, where you selected the relevant entries
+            
+            adata.write_h5ad(Path(h5ad_dir, f'{args.name}_raw.h5ad'))
+            
         else: 
             # Data needs to be normalized, alert the user to the missing flag
             msg = f'Data needs to be normalized when processing bulk data. Set the flag accordingly. '
