@@ -477,9 +477,8 @@ def main():
             adata.var_names_make_unique()
             adata.obs_names_make_unique()
             
-            # TODO: This causes an error, fix it! 
-            #adata.var['gene_symbol'] = gene_metadata['name'].astype(str)
-            #adata.var['gene_id'] = gene_metadata['ID'].astype(str)
+            adata.var['gene_symbol'] = gene_metadata['name'].values.astype(str)
+            adata.var['gene_id'] = gene_metadata['ID'].values.astype(str)
 
             # Sort the lists to create equal lists, if the same data is present
             sampledata_headers_list = sampledata.columns.to_list()
