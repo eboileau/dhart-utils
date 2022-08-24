@@ -105,12 +105,15 @@ def read_txt(
     ext: Optional[str] = None,
     delimiter: Optional[str] = None,
     first_column_names: bool = False,
-    first_row_names: bool = False
+    first_row_names: bool = False,
+    var_names: Literal['gene_symbol', 'gene_id'] = 'gene_symbol',
+    n_vars: int = 1
 ) -> AnnData:
     
     """\
-    Read 10x-Genomics-formatted mtx files. A simplified/modified
-    version of scanpy read_10x_mtx.
+    Read `.txt`, `.tab`, `.data` (text) file.. A modified
+    version of scanpy read_text (:func:`~anndata.read_csv` but 
+    with default delimiter `None`).
     
     Parameters
     ----------
@@ -122,19 +125,22 @@ def read_txt(
     delimiter
         Delimiter that separates data within text file. If ``None``, will split at
         arbitrary number of white spaces, which is different from enforcing
-        splitting at any single white space ``' '``.
+        splitting at any single white space ``' '``. Note that this is also passed
+        to pandas.read_csv if n_vars == 2.
     first_column_names
         Assume the first column stores row names. This is only necessary if
         these are not strings: strings in the first column are automatically
         assumed to be row names.
     first_row_names
         Assume the first row stores column names. The behaviour of this flag is 
-        mostly dependent on the anndata read_txt function. If the first line 
-        starts with "#", this is ignored. If the first line does not start with
-        "#", it might wrongly be read into X (and var), e.g. if column names are well 
+        mostly dependent on the anndata read_txt function. The first line might 
+        wrongly be read into X (and var), e.g. if column names are well 
         numbers. If True, then column names are read separately and re-assigned, 
-        and this depends on delimiter. If False, only the first row is removed,
-        and obs_names are numbered by default.
+        and this depends on delimiter. If False, fall back entirely to read_txt.
+    var_names
+        The variables index.
+    n_vars
+        Number of columns (features). 
         
     Returns
     -------
@@ -142,8 +148,27 @@ def read_txt(
     """
     
     import scanpy as sc 
+    import pandas as pd
     
     path = Path(path)
+    
+    # TXT file contains 2 columns for gene ids (1st col.) 
+    # and symbols (2nd col.)
+    if n_vars == 2:
+        cols = ['gene_id', 'gene_symbol']
+        idx = 0
+        if var_names == cols[0]:
+            idx = 1
+        col = cols[idx]
+        # if sep is None, fallback to Python parsing engine
+        mat = pd.read_csv(path, sep=delimiter)
+        var_col = mat.iloc[:,idx].values
+        mat.drop(mat.columns[idx], axis=1, inplace=True)
+        
+        path = Path(str(path).removesuffix("".join(path.suffixes)))
+        path = Path(path.parent, f"{path.stem}_tmp.csv.gz")
+        mat.to_csv(path, sep=',', compression="gzip", index=False)
+
     if path.suffix == ".gz":
         with gzip.open(path, mode="rt") as f:
             first_line = f.readline().strip()
@@ -156,22 +181,29 @@ def read_txt(
         ext=ext,
         delimiter=delimiter,
         first_column_names=first_column_names).T
-    if not first_line.startswith('#'):
-        adata = adata[:,1:].copy()
+
     if first_row_names:
+        adata = adata[:,1:].copy()
         # assume first entry is actually the first column name (e.g. gene_ids)...
         obs_names = first_line.split(delimiter)[1:]
         if len(obs_names) == len(adata.obs_names):
             adata.obs_names = obs_names
         else:
             msg = f'Cannot re-assign column names as ' \
-                  f'len(adata.obs_names) = {len(adata.obs_names)} != ' \
-                  f'len(obs_names) = {len(obs_names)}. Skipping!'
+                f'len(adata.obs_names) = {len(adata.obs_names)} != ' \
+                f'len(obs_names) = {len(obs_names)}. Skipping!'
             logger.warning(msg)
             
     if not issparse(adata.X):
         adata.X = csr_matrix(adata.X)
-    
+        
+    # adjust var_names
+    if n_vars == 2:
+        adata.var[col] = var_col
+        if col != 'gene_symbol':
+            adata.var['gene_symbol'] = adata.var_names
+        path.unlink() # remove tmp file
+
     return adata
 
 
@@ -179,6 +211,7 @@ def add_obs(
     geo: str,
     obs: DataFrame,
     adata: AnnData,
+    bulk: bool = False
 ) -> AnnData:
     
     pretty_cols = dict()
@@ -189,6 +222,15 @@ def add_obs(
     pretty_cols = dict(pretty_cols, **{c:c.rsplit('.', 1)[1] for c in cols if not c.startswith('source_name_')})
     
     if not cols:
+        return adata
+    if bulk:
+        obs.rename(columns=pretty_cols, inplace=True)
+        cols = ['title', 'geo_accession']
+        cols.extend(list(pretty_cols.values()))
+        obs = obs[cols]
+        obs_names = adata.obs_names
+        adata.obs = obs
+        adata.obs_names = obs_names
         return adata
     
     info = obs[obs.geo_accession==geo]
@@ -236,19 +278,60 @@ def parse_txt_fmt(
         filename,
         observations,
         **kwargs
-    ):    
+    ) -> AnnData:
+        
         adata = read_txt(
             path=filename,
             ext=kwargs['ext'],
             delimiter=kwargs['delimiter'],
             first_column_names=kwargs['first_column_names'],
-            first_row_names=kwargs['first_row_names']
+            first_row_names=kwargs['first_row_names'],
+            var_names=kwargs['var_names'],
+            n_vars=kwargs['n_vars']
         )
-        adata = add_obs(sample, observations, adata)
+        bulk = kwargs.get("bulk", False)
+        adata = add_obs(sample, observations, adata, bulk=bulk)
         return adata
       
     adatad = {sample: _parse(sample, Path(path, filename), observations, **kwargs) for 
                   sample, filename in zip(files['Sample'], files['Name'])} 
-    
+
     return adatad
+
+
+def add_missing_var_cols(
+    adata: AnnData,
+    qterm: str, 
+    scopes: str,
+    fields: str,
+    species: int,
+    var_name: str
+) -> AnnData:
+    
+    import pandas as pd
+    import mygene
+    
+    mg = mygene.MyGeneInfo()
+    mg_query = mg.querymany(adata.var_names, 
+                            scopes=scopes, 
+                            fields='symbol,' + fields, 
+                            species=species, 
+                            as_dataframe=True)
+    mg_query.reset_index(inplace=True)
+    mg_query.drop_duplicates(subset=['query'], inplace=True)
+        
+    feature_present = "gene_symbol" if qterm == "gene_id" else "gene_id"
+    col = "symbol"
+    if feature_present == "gene_symbol":
+        col = fields
+    
+    mg_query.rename(columns={"query": feature_present, col: qterm}, inplace=True)
+    mg_query = mg_query[[feature_present, qterm]]
+    adata.var[feature_present] = adata.var_names
+    adata.var = pd.merge(adata.var, mg_query, on=feature_present, how='left')
+    
+    adata.var[qterm].fillna(adata.var[feature_present], inplace=True)
+    adata.var_names = adata.var[var_name].values
+    
+    return adata
 
