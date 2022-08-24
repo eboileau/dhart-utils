@@ -1,4 +1,9 @@
 git+https://github.com/saketkc/pysradb.git@70bab1b0e435c91013fa30c1f1b4f7d005449f96#egg=pysradb
-scanpy==1.9.1
 scikit-learn==1.1.1
-numpy==1.21
+scanpy==1.9.1
+numpy==1.21.0
+scipy==1.8.1
+tables==3.7.0
+h5py==3.7.0
+anndata==0.8.0
+pandas==1.4.2
