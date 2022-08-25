@@ -17,17 +17,14 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 import anndata as ad
 
+from pathlib import Path
+
 import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri, numpy2ri
 from rpy2.robjects.conversion import localconverter
-# from rpy2.robjects.packages import importr
 
-import utils.utils as utils
-import utils.data_utils as data_utils
-
-from pathlib import Path
-from paths import PROJECT_ROOT
-UTILS_PATH = PROJECT_ROOT / 'utils'
+import dhartutils.utils.utils as utils
+import dhartutils.utils.data_utils as data_utils
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +135,14 @@ def main():
                         header, where genes are in the same order as the read count
                         matrix.""", type=str, default=None)
     
-    parser.add_argument('--mygene-scopes', help="""Type of types of identifiers as defined 
+    parser.add_argument('--mygene-scopes', help="""Type of identifiers as defined 
                         by MyGene.py. Refer to official MyGene.info docs for full list of 
-                        fields.""", type=str, default='ensembl.gene')
+                        fields. This is used if [--mex-gene-ncols] is 1, or if 
+                        [--txt-gene-cols] is not both, to fill in either gene ids or 
+                        symbols. If ids or symbols have one or more underscores, e.g.
+                        'ZYX__chr7', then this is automatically converted to 'ZXY'. Any
+                        other non-standard format needs to be pre-formatted accordingly.""", 
+                        type=str, default='ensembl.gene')
         
     utils.add_logging_options(parser)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])

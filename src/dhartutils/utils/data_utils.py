@@ -311,27 +311,37 @@ def add_missing_var_cols(
     import pandas as pd
     import mygene
     
-    mg = mygene.MyGeneInfo()
-    mg_query = mg.querymany(adata.var_names, 
-                            scopes=scopes, 
-                            fields='symbol,' + fields, 
-                            species=species, 
-                            as_dataframe=True)
-    mg_query.reset_index(inplace=True)
-    mg_query.drop_duplicates(subset=['query'], inplace=True)
+    # make sure gene_id or gene_symbol does not contain 
+    # non-standard formatting e.g. __chr
+    if any(["_" in v for v in adata.var_names]):
+        adata.var_names = [v[0] for v in adata.var_names.str.split("_", 1)]
+    
+    try:
+        mg = mygene.MyGeneInfo()
+        mg_query = mg.querymany(adata.var_names, 
+                                scopes=scopes, 
+                                fields='symbol,' + fields, 
+                                species=species, 
+                                as_dataframe=True)
+        mg_query.reset_index(inplace=True)
+        mg_query.drop_duplicates(subset=['query'], inplace=True)
+            
+        feature_present = "gene_symbol" if qterm == "gene_id" else "gene_id"
+        col = "symbol"
+        if feature_present == "gene_symbol":
+            col = fields
         
-    feature_present = "gene_symbol" if qterm == "gene_id" else "gene_id"
-    col = "symbol"
-    if feature_present == "gene_symbol":
-        col = fields
-    
-    mg_query.rename(columns={"query": feature_present, col: qterm}, inplace=True)
-    mg_query = mg_query[[feature_present, qterm]]
-    adata.var[feature_present] = adata.var_names
-    adata.var = pd.merge(adata.var, mg_query, on=feature_present, how='left')
-    
-    adata.var[qterm].fillna(adata.var[feature_present], inplace=True)
-    adata.var_names = adata.var[var_name].values
+        mg_query.rename(columns={"query": feature_present, col: qterm}, inplace=True)
+        mg_query = mg_query[[feature_present, qterm]]
+        adata.var[feature_present] = adata.var_names
+        adata.var = pd.merge(adata.var, mg_query, on=feature_present, how='left')
+        
+        adata.var[qterm].fillna(adata.var[feature_present], inplace=True)
+        adata.var_names = adata.var[var_name].values
+        adata.var_names_make_unique()
+    except Exception as e:
+        msg = f"{e}\n Could not add missing {qterm}s. Skipping!" 
+        logger.warning(msg)
     
     return adata
 

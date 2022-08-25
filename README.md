@@ -1,27 +1,74 @@
 
-# DHART utils
+# DHART-utils
 
-This repository contains modules and scripts associated with the DHART (Digital HeART) portal, _e.g._ data retrieval from GEO, semi-automated
+This repository contains tools associated with the DHART (Digital HeART) portal, _e.g._ data retrieval from GEO, semi-automated
 metadata preparation, data wrangling, _etc._
 
 The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEAR), developped by the [Institute for Genome Sciences](https://github.com/IGS/gEAR).
 
-!!! info
 
-    This repository is currently under development.
+<a id="quickstart"></a>
 
 ## Quickstart
 
-### Docker
-This software is supplied in a Docker image. Docker images enable the user to easily deploy software without any dependency tree issues. Since dhart-utils utils isn't hosted in an image registry, the image needs to be built from the Dockerfile.
-To do so, execute the following command from the root directory:
+For Docker (Singularity) usage, see [Docker](#docker).
+
+If installing the package, first see [Dependencies](#dependencies).
+Create a virtual environment, clone the repository and install **dhart-utils**:
+
+```bash
+# create virtual environment (Python >=3.9)
+python3 -m venv /path/to/virtual/environment
+
+# activate the environment
+source /path/to/virtual/environment/bin/activate
+
+# clone the repository
+git clone https://github.com/eboileau/dhart-utils.git
+cd dhart-utils
+
+# install
+pip3 install --upgrade pip setuptools wheel
+pip3 --verbose install -r dependencies/requirements.txt . 2>&1 | tee install.log
+```
+
+### accession
+
+This script is used to download GEO series, prepare the metadata for ingestion into DHART, and data files for wrangling.
+To see the full list of parameters, call the program on the command line without any option: `accession`.
+
+### wrangling
+
+This script is a data wrangling wrapper to prepare and reformat GEO supplementary files into H5AD for input into the DHART portal.
+To see the full list of parameters, call the program on the command line without any option: `wrangling`.
+
+<a id="dependencies"></a>
+
+## Dependencies
+
+Unless you are using Docker (or Singularity), installing **dhart-utils** also requires a working R >4.1.x installation
+with packages listed in [R-dependencies.r](dependencies/R-dependencies.r)
+
+Pinned version of selected Python packages are listed in [requirements.txt](dependencies/requirements.txt) for reproducible installation.
+
+**Note:** Depending on your setup, environment variables may need to be updated, *e.g.* `export LD_LIBRARY_PATH="/path/to/your/R/installation/lib/R/lib:$LD_LIBRARY_PATH"` after installing **rpy2**.
+
+<a id="docker"></a>
+
+## Docker
+
+Docker images allow to deploy the package resources without any dependency tree issues.
+However, **dhart-utils** images are not yet published (hosted in an image registry) or integrated to GitHub actions, and thus
+needs to be built from the Dockerfile. 
+
+Assuming that Docker is installed, execute the following command from the root directory:
 
 - accession: `docker build --rm -t accession:latest -f docker/accession/Dockerfile .`
 - wrangling: `docker build --rm -t wrangling:latest -f docker/wrangling/Dockerfile .`
 
 where the tag *latest* can be changed.
 
-Once the image is built, the docker `run` command can be used to create a writeable container and start it:
+Once the image is built, the Docker `run` command can be used to create a writeable container and start it:
 
 - accession: `docker run accession:latest` (without options, shows help message and exits, equivalent to [--help/-h])
 
@@ -41,46 +88,6 @@ docker run -v /mnt/smb/prj/DHART/DATA/GSEXXXXX1:/out wrangling:latest --dest /ou
 
 Here, the host machine's directory is /mnt/smb/prj/DHART/DATA/GSEXXXXX1, which *must* be the path to the directory where GEO files reside, including output from accession and/or pre-processed bulk RNA-seq count matrix (the path specified by [--dest]).
 
-
-### Dependencies
-
-When using this library without docker, the following dependencies need to be installed on your system:
-
-- R version 4.2.x
-- Python 3.9.5
-- pandas
-- anndata
-- rpy2
-- mygene
-- dependencies from requirements.txt and R-dependencies.R
-
-Dependency files can be found in the folder [dependencies](./dependencies/).
-
-### accession.py
-
-This script is used to download GEO Series and will prepare the data for ingestion into DHART.
-
-### wrangling.py
-
-This is a data wrangling wrapper to prepare and reformat GEO supplementary files into h5ad for input into DHART.
-
-## Installation
-
-This repository is currently not *installable* ( *i.e.* it is not a package ).
-
-
-```bash
-# clone dhart-utils
-git clone https://github.com/eboileau/dhart-utils.git
-# install dependencies (see below) in a virtual environment
-module load python3/3.9.5_deb10
-python3 -m venv ~/.virtualenvs/dhart_utils
-source ~/.virtualenvs/dhart_utils/bin/activate
-```
-
-### Dependencies
-
-Pinned version of selected dependencies are listed in the _requirements.txt_ file for reproducible installation.
 
 ## RNA bulk data download and processing
 
@@ -105,24 +112,23 @@ Please conform input data to one of the following schemes (note that column head
 'gene_id':
 |    | <sample#1> | ... | <sample#n> |
 |----|------------|-----|------------|
-|    | 1.343      | ... | 1.472      |
-|    | 2.872      | ... | 3.971      |
-|    | 1.341      | ... | 1.349      |
+| ENS...   | 1.343      | ... | 1.472      |
+| ENS...   | 2.872      | ... | 3.971      |
+| ENS...   | 1.341      | ... | 1.349      |
 
 'gene_symbol':
 |      | <sample#1> | ... | <sample#n> |
 |------|------------|-----|------------|
-|      | 1.343      | ... | 1.472      |
-|      | 2.872      | ... | 3.971      |
-|      | 1.341      | ... | 1.349      |
+|  A...    | 1.343      | ... | 1.472      |
+|  B...    | 2.872      | ... | 3.971      |
+|  C...    | 1.341      | ... | 1.349      |
 
 'both':
-|    | name | <sample#1> | ... | <sample#n> |
+|    |      | <sample#1> | ... | <sample#n> |
 |----|------|------------|-----|------------|
-|    |      |            |     |            |
-|    |      | 1.343      | ... | 1.472      |
-|    |      | 2.872      | ... | 3.971      |
-|    |      | 1.341      | ... | 1.349      |
+| ENS...   |  A...    | 1.343      | ... | 1.472      |
+| ENS...   |  B...    | 2.872      | ... | 3.971      |
+| ENS...   |  C...    | 1.341      | ... | 1.349      |
 
 ## Running the tests
 
@@ -134,10 +140,12 @@ Test data for bulk under /prj/DHART/DATA/test_data/RNAseq/GSEXXXXX1.
 
 ## Versioning
 
-This project currently does NOT adheres to [Semantic Versioning](http://semver.org/). See [CHANGELOG](CHANGELOG.md).
+This project adheres to [Semantic Versioning](http://semver.org/). See [CHANGELOG](CHANGELOG.md).
 
 ## Notes
 
 GEO classes and parsing functions in `geo_utils` are based on [GEOparse](https://github.com/guma44/GEOparse), which does
 not seem to be maintained anymore. These were modified to deal with GEO SERIES and SAMPLES metadata only.
 Interacting with GEO/SRA online (data download) is done with [pysradb](https://github.com/saketkc/pysradb).
+Bulk RNA-seq normalization relies on standard functions implemented in the R packages **edgeR** and **DESeq2**.
+

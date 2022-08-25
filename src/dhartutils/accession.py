@@ -9,12 +9,10 @@ import logging
 import argparse
 
 from pathlib import Path
-from paths import PROJECT_ROOT
-UTILS_PATH = PROJECT_ROOT / 'utils'
 
 import pandas as pd
-import utils.utils as utils
-import utils.geo_utils as geo_utils
+import dhartutils.utils.utils as utils
+import dhartutils.utils.geo_utils as geo_utils
 
 logger = logging.getLogger(__name__)
 
