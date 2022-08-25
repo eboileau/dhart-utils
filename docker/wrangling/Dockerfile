@@ -1,50 +1,19 @@
 FROM bitnami/python:3.9.5-debian-10-r48
 
-# Update the package repository
-RUN apt update
+RUN apt update && apt -y install git python3-pip python3-wheel && pip3 install wheel
+RUN apt -y --install-recommends install dirmngr software-properties-common apt-transport-https \ 
+	&& apt-key adv --keyserver keyserver.ubuntu.com --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7' \
+	&& add-apt-repository 'deb http://cloud.r-project.org/bin/linux/debian buster-cran40/' \
+	&& apt update \
+	&& apt -y install libssl-dev libcurl4-openssl-dev libxml2-dev \
+	&& apt -y install r-base
 
-# Install required packages
-RUN pip install rpy2
-RUN pip install scipy
-RUN pip install pandas
-RUN pip install anndata
-RUN pip install mygene
+WORKDIR /src
+COPY . .
 
-# Install R
-RUN apt install -y dirmngr --install-recommends
-RUN apt install -y software-properties-common
-RUN apt install -y apt-transport-https
+# install dhart-utils (dependencies) 
+RUN pip3 install -r dependencies/requirements.txt
+# install R dependencies
+RUN Rscript dependencies/R-dependencies.r
 
-RUN apt --fix-broken install
-RUN apt autoremove
-
-
-
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'
-RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bullseye-cran40/'
-
-RUN apt-get update
-RUN apt-get upgrade
-RUN apt-get install r-base-dev
-
-#RUN apt-get update
-#RUN apt-get install -y r-base
-
-# Install git to be able to clone the DHART repo in the next step
-RUN apt install -y git
-
-# Clone the DHART library
-RUN git clone https://github.com/eboileau/dhart-utils.git
-
-# Install R dependencies
-COPY /dependencies/R-dependencies.r /dependencies/R-dependencies.r 
-COPY /dependencies/requirements.txt /dependencies/requirements.txt
-
-RUN Rscript /dependencies/R-dependencies.r
-RUN pip install -r /dependencies/requirements.txt
-
-# copy handler script
-RUN mkdir /root/bin
-COPY wrangling.py /root/bin/wrangling.py
-
-ENTRYPOINT [ "python3", "/root/bin/wrangling.py" ]
+ENTRYPOINT [ "python3", "wrangling.py" ]

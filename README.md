@@ -13,16 +13,34 @@ The DHART is based on the [gEAR framework](https://github.com//dieterich-lab/gEA
 ## Quickstart
 
 ### Docker
-This software is supplied in a Docker image. Docker images enable the user to easily deploy software without any dependency tree issues. Since DHART utils isn't hosted in an image registry, the image needs to be built from the Dockerfile.
+This software is supplied in a Docker image. Docker images enable the user to easily deploy software without any dependency tree issues. Since dhart-utils utils isn't hosted in an image registry, the image needs to be built from the Dockerfile.
 To do so, execute the following command from the root directory:
 
-- accession: `docker build -t accession -f ./docker/accession/Dockerfile .`
-- wrangling: `docker build -t wrangling -f ./docker/wrangling/Dockerfile .`
+- accession: `docker build --rm -t accession:latest -f docker/accession/Dockerfile .`
+- wrangling: `docker build --rm -t wrangling:latest -f docker/wrangling/Dockerfile .`
 
-Once the image is built, it can then be launched by running the following command:
+where the tag *latest* can be changed.
 
-- accession: `docker run accession`
-- wrangling: `docker run wrangling`
+Once the image is built, the docker `run` command can be used to create a writeable container and start it:
+
+- accession: `docker run accession:latest` (without options, shows help message and exits, equivalent to [--help/-h])
+
+```
+docker run -v "`pwd`/local":/out accession:latest -f /out/ACCESSION.txt -d /out --logging-level INFO --log-file /out/accession.log
+```
+
+Here, we use volume driver options, where the first field is an existing directory on the host machine (a directory named *local* under the 
+current directory, where we have placed required input files *e.g.* ACCESSION.txt), and the second field is the path where the file or directory 
+are mounted in the container. Options with input files or paths that are passed to the program must be relative to the mounted directory in the container.
+
+- wrangling: `docker run wrangling:latest` (without options, shows help message and exits, equivalent to [--help/-h])
+
+```
+docker run -v /mnt/smb/prj/DHART/DATA/GSEXXXXX1:/out wrangling:latest --dest /out --name docker -fmt TXT --txt-gene-cols gene_id --gene-var gene_symbol --do-normalise --normalization-method TMM --logging-level INFO --log-file /out/wrangling.log
+```
+
+Here, the host machine's directory is /mnt/smb/prj/DHART/DATA/GSEXXXXX1, which *must* be the path to the directory where GEO files reside, including output from accession and/or pre-processed bulk RNA-seq count matrix (the path specified by [--dest]).
+
 
 ### Dependencies
 
