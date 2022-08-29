@@ -140,9 +140,20 @@ def main():
                         fields. This is used if [--mex-gene-ncols] is 1, or if 
                         [--txt-gene-cols] is not both, to fill in either gene ids or 
                         symbols. If ids or symbols have one or more underscores, e.g.
-                        'ZYX__chr7', then this is automatically converted to 'ZXY'. Any
+                        "ZYX__chr7", then this is automatically converted to "ZXY". Any
                         other non-standard format needs to be pre-formatted accordingly.""", 
                         type=str, default='ensembl.gene')
+    
+    parser.add_argument('--replicate-column', help="""Column name from "observations.tab.gz"
+                        to use as replicate, e.g. "characteristics_ch1.2.biological replicate".
+                        By default, "replicate" is used to find a suitable column (substring
+                        match).""", type=str, default="replicate")
+    
+    parser.add_argument('--cluster-column', help="""Column name from "observations.tab.gz"
+                        to use for cell type or cluster (for scRNA-seq), e.g. 
+                        "characteristics_ch1.1.cell type". By default, "cluster" is used 
+                        to find a suitable column (substring match).""", type=str, 
+                        default="cluster")
         
     utils.add_logging_options(parser)
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -224,6 +235,8 @@ def main():
                 'n_vars': args.mex_gene_ncols,
                 'var_names': args.gene_var,
                 'feature': 'gene_symbol',
+                'rep_col': args.replicate_column,
+                'clust_col': args.cluster_column
             }
         elif args.input_format == 'TXT':
             parse_fmt = data_utils.parse_txt_fmt
@@ -235,6 +248,8 @@ def main():
                 'n_vars': 2 if args.txt_gene_cols == 'both' else 1,
                 'var_names': args.gene_var,
                 'feature': args.txt_gene_cols,
+                'rep_col': args.replicate_column,
+                'clust_col': args.cluster_column
             }
         else:
             msg = "[--input-format] undefined! Cannot process files." \
@@ -347,6 +362,7 @@ def main():
             'n_vars': 2 if args.txt_gene_cols == 'both' else 1,
             'var_names': args.gene_var,
             'feature': args.txt_gene_cols,
+            'rep_col': args.replicate_column,
             'bulk': True
         }
         adata = parse_fmt(

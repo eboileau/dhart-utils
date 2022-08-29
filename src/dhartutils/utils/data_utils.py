@@ -211,18 +211,41 @@ def add_obs(
     geo: str,
     obs: DataFrame,
     adata: AnnData,
+    rep_col: str = None,
+    clust_col: str = None,
     bulk: bool = False
 ) -> AnnData:
+    
+    
+    def match_col(col, subs, pretty_cols):
+        # adjust replicate or cluster column 
+        if col is not None:
+            if col in pretty_cols.keys():
+                msg = f'Using "{col}" as {subs} column.'
+                pretty_cols[col] = subs
+            else: # substring search for default (key not found)
+                match = [k for k in pretty_cols.keys() if col in k.lower()]
+                num_match = len(match)
+                if num_match == 1:
+                    msg = f'Found match! Using "{match[0]}" as {subs} column.'
+                    pretty_cols[match[0]] = subs
+                else:
+                    msg = f"{num_match} match(es) found for {col}. Skipping!"
+            logger.info(msg)
+        return pretty_cols
+    
     
     pretty_cols = dict()
     cols = [c for c in obs.columns if c.startswith('source_name_')]
     if cols:
         pretty_cols[cols[0]] = 'source_name' # there should only be one such entry...
     cols.extend([c for c in obs.columns if c.startswith('characteristics_')])
-    pretty_cols = dict(pretty_cols, **{c:c.rsplit('.', 1)[1] for c in cols if not c.startswith('source_name_')})
-    
     if not cols:
         return adata
+    
+    pretty_cols = dict(pretty_cols, **{c:c.rsplit('.', 1)[1] for c in cols if not c.startswith('source_name_')})
+    pretty_cols = match_col(rep_col, "replicate", pretty_cols)
+    
     if bulk:
         obs.rename(columns=pretty_cols, inplace=True)
         cols = ['title', 'geo_accession']
@@ -233,6 +256,7 @@ def add_obs(
         adata.obs_names = obs_names
         return adata
     
+    pretty_cols = match_col(clust_col, "cluster", pretty_cols)
     info = obs[obs.geo_accession==geo]
     for c in cols:
         adata.obs[pretty_cols[c]] = info[c].values[0]
@@ -260,7 +284,13 @@ def parse_mex_fmt(
             var_names=kwargs['var_names'],
             n_vars=kwargs['n_vars']
         )
-        adata = add_obs(geo, observations, adata)
+        rep_col = kwargs.get("rep_col", None)
+        clust_col = kwargs.get("clust_col", None)
+        adata = add_obs(geo, 
+                        observations, 
+                        adata, 
+                        rep_col=rep_col, 
+                        clust_col=clust_col)
         adatad[geo] = adata
     
     return adatad
@@ -290,7 +320,14 @@ def parse_txt_fmt(
             n_vars=kwargs['n_vars']
         )
         bulk = kwargs.get("bulk", False)
-        adata = add_obs(sample, observations, adata, bulk=bulk)
+        rep_col = kwargs.get("rep_col", None)
+        clust_col = kwargs.get("clust_col", None)
+        adata = add_obs(sample, 
+                        observations, 
+                        adata,
+                        rep_col=rep_col, 
+                        clust_col=clust_col,
+                        bulk=bulk)
         return adata
       
     adatad = {sample: _parse(sample, Path(path, filename), observations, **kwargs) for 
