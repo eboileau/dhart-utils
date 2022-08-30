@@ -86,6 +86,9 @@ def read_mex(
     if make_unique:
         var_names = make_index_unique(pd.Index(var_names), join='_')
     adata.var_names = var_names
+    # make sure index is named - required for the portal
+    # use same nomenclature
+    adata.var.index.name = "gene"
     if n_vars > 1:
         adata.var[col] = genes[col].values
         if col != 'gene_symbol':
@@ -203,7 +206,12 @@ def read_txt(
         if col != 'gene_symbol':
             adata.var['gene_symbol'] = adata.var_names
         path.unlink() # remove tmp file
-
+    
+    # make sure index is named - required for the portal
+    # use same nomenclature
+    adata.var.index.name = "gene"
+    adata.var_names_make_unique("_")
+    
     return adata
 
 
@@ -254,12 +262,14 @@ def add_obs(
         obs_names = adata.obs_names
         adata.obs = obs
         adata.obs_names = obs_names
+        adata.obs.index.name = "observations" 
         return adata
     
     pretty_cols = match_col(clust_col, "cluster", pretty_cols)
     info = obs[obs.geo_accession==geo]
     for c in cols:
         adata.obs[pretty_cols[c]] = info[c].values[0]
+    adata.obs.index.name = "observations" 
     
     return adata
 
@@ -375,10 +385,14 @@ def add_missing_var_cols(
         
         adata.var[qterm].fillna(adata.var[feature_present], inplace=True)
         adata.var_names = adata.var[var_name].values
-        adata.var_names_make_unique()
     except Exception as e:
         msg = f"{e}\n Could not add missing {qterm}s. Skipping!" 
         logger.warning(msg)
-    
+    finally:
+        # in any case, check and adjust
+        if adata.var.index.name is None:
+            adata.var.index.name = "gene"
+        adata.var_names_make_unique("_")
+        
     return adata
 

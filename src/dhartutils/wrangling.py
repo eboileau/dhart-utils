@@ -109,7 +109,7 @@ def main():
     
     parser.add_argument('--gene-var', help="""Column to use as "var_names". Can be used 
                         with either [--input-format] options.""", type=str, 
-                        choices=['gene_symbol', 'gene_id'], default='gene_symbol')
+                        choices=['gene_symbol', 'gene_id'], default='gene_id')
     
     parser.add_argument('-p', '--pattern', help="""A space separated list of patterns 
                         used to glob files. Can be used with either [--input-format] options.
