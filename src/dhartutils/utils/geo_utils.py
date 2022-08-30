@@ -434,6 +434,9 @@ class GSE(BaseGEO):
             'sample_taxid': self.get_metadata_attribute('sample_taxid'), # check if consistent with platform_taxid?
             'tags': tags
         }
+        # in particular for summary, if there are multiple "!Series_summary" entries...
+        if type(metadata['summary']) == list:
+            metadata['summary'] = " ".join(metadata['summary'])
         out_dir = Path(dest, geo, f'{geo}.json')
         logger.info(f'Writing {out_dir}')
         with open(out_dir, "w") as out_file:
