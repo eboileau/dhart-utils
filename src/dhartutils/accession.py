@@ -17,11 +17,15 @@ import dhartutils.utils.geo_utils as geo_utils
 logger = logging.getLogger(__name__)
 
 
+# fixed by the portal's current nomenclature
 data_choices = ['single-cell RNA-Seq', 
                 'bulk RNA-Seq', 
                 'microarray', 
                 'ChIP-Seq', 
                 'ATAC-Seq']
+# default header for [--gfile] 
+gfile_header = ['geo_accession', 'dataset_type', 'genome_assembly', 
+                   'annotation_source', 'annotation_release', 'tags']
 
 
 def main():
@@ -92,8 +96,8 @@ def main():
             args.gfile, 
             sep='\t',
             header=None,
-            names=['geo_accession', 'dataset_type', 'genome_assembly', 
-                   'annotation_source', 'annotation_release', 'tags']
+            usecols=list(range(0, len(gfile_header))),
+            names=gfile_header,
         )
         geo['geo_accession'] = geo['geo_accession'].str.upper()
         geo = geo[geo.geo_accession.str.startswith('GSE')].copy()
