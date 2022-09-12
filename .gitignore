@@ -12,6 +12,8 @@ cache/
 local/
 logs/
 
+# 
+.bak
 
 
 
