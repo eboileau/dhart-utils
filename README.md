@@ -29,7 +29,7 @@ cd dhart-utils
 
 # install
 pip3 install --upgrade pip setuptools wheel
-pip3 --verbose install -r dependencies/requirements.txt . 2>&1 | tee install.log
+pip3 --verbose install . 2>&1 | tee install.log
 ```
 
 ### accession

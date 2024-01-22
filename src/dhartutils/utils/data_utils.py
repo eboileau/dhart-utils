@@ -260,6 +260,7 @@ def add_obs(
         cols.extend(list(pretty_cols.values()))
         obs = obs[cols]
         obs_names = adata.obs_names
+        # order?
         adata.obs = obs
         adata.obs_names = obs_names
         adata.obs.index.name = "observations" 
@@ -361,7 +362,7 @@ def add_missing_var_cols(
     # make sure gene_id or gene_symbol does not contain 
     # non-standard formatting e.g. __chr
     if any(["_" in v for v in adata.var_names]):
-        adata.var_names = [v[0] for v in adata.var_names.str.split("_", 1)]
+        adata.var_names = [v[0] for v in adata.var_names.str.split("_")]
     
     try:
         mg = mygene.MyGeneInfo()
