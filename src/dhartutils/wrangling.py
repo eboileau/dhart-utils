@@ -183,10 +183,16 @@ def main():
         return
     observations = pd.read_csv(filen, sep="\t")
     
+    msg = f'Found these GEO ids in observations: {", ".join(observations.geo_accession.to_list())}'
+    logger.debug(msg)
+    
     # output directory
     h5ad_dir = Path(args.dest, 'h5ad')
     h5ad_dir.mkdir(parents=True, exist_ok=False)
-        
+    
+    msg = f'Created output directory: {h5ad_dir.as_posix()}'
+    logger.debug(msg)
+    
     msg = f"Processing {config['dataset_type']} {config['geo_accession']}. "
     logger.info(msg)
     
@@ -211,6 +217,9 @@ def main():
         filelist.reset_index(drop=True, inplace=True)
         filelist['Sample'] = filelist['Name'].str.split('_', n=1, expand=True)[0].values
         
+        msg = f'filelist has the following samples: {", ".join(filelist.Sample.to_list())}'
+        logger.debug(msg)
+        
         # check which files to extract
         pattern = fr'.*({"|".join(args.pattern)}).*'
         filelist = filelist[filelist.Name.str.match(pattern, flags=re.IGNORECASE)]
@@ -218,14 +227,24 @@ def main():
         observations = observations[observations.geo_accession.isin(filelist.Sample)].copy()
         observations.reset_index(drop=True, inplace=True)
         
+        msg = f'Remaining GEO ids in observations after checking which files to extract: {", ".join(observations.geo_accession.to_list())}'
+        logger.debug(msg)
+        
         # NOTE: we don't check observations (supplementary_file_) for consistency... 
         if args.input_format == 'MEX':
+            
+            msg = 'Format is MEX'
+            logger.debug(msg)
+        
             mex_files = "|".join([args.mex_gene, args.mex_barcode, args.mex_matrix])
             pattern = fr'.*({mex_files}).*'
             filelist = filelist[filelist.Name.str.match(pattern, flags=re.IGNORECASE)]
             filelist.reset_index(drop=True, inplace=True)
             observations = observations[observations.geo_accession.isin(filelist.Sample)].copy()
             observations.reset_index(drop=True, inplace=True)
+            
+            msg = f'Remaining GEO ids in observations after checking which files to extract: {", ".join(observations.geo_accession.to_list())}'
+            logger.debug(msg)
             
             parse_fmt = data_utils.parse_mex_fmt
             kwargs = {
@@ -262,6 +281,10 @@ def main():
         # make sure there are no filenames starting with "/"
         # if these are inconsistent, tarfile will throw an error...
         to_extract = [Path(n).name for n in filelist.Name]
+        
+        msg = f'Will extract: {", ".join(to_extract)}'
+        logger.debug(msg)
+            
         try:
             extract_dir.mkdir(parents=True, exist_ok=False)
             try:
@@ -330,6 +353,10 @@ def main():
         
         
     elif "bulk" in config['dataset_type'].lower():
+        
+        msg = 'Format is TXT (bulk)'
+        logger.debug(msg)
+            
         # force text format - pre-formatted input
         args.input_format = "TXT"
         h5ad_name = f"{args.name}_normalized.h5ad"
@@ -353,6 +380,12 @@ def main():
             logger.critical(msg)
             return
         filelist = pd.DataFrame({"Sample": [config['geo_accession']], "Name": filenames})
+        
+        msg = f'Newly created filelist has the following sample(s): {", ".join(filelist.Sample.to_list())}'
+        logger.debug(msg)
+        msg = f'The following file will be used: {filenames[0]}'
+        logger.debug(msg)
+        
         parse_fmt = data_utils.parse_txt_fmt
         kwargs = {
             'ext': args.txt_ext,
@@ -429,6 +462,9 @@ def main():
         msg = f"{config['dataset_type']} not supported!"
         logger.critical(msg)
         return
+    
+    msg = 'Done with wrangling, adding missing features.'
+    logger.debug(msg)
         
     # add missing features (id or symbol) to the final object
     if kwargs['n_vars'] == 1:
