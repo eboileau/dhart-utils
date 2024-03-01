@@ -1,4 +1,4 @@
-FROM bitnami/python:3.10-debian-11
+FROM docker.io/bitnami/python:3.10-debian-11
 
 RUN apt update && apt install -y git python3-pip python3-wheel
 RUN pip install --upgrade pip wheel setuptools

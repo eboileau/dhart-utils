@@ -1,0 +1,15 @@
+.git/
+.github/
+logs/
+local/
+cache/
+docker/
+data/
+CHANGELOG.md
+README.md
+LICENSE
+
+__pycache__
+*egg-info
+.eggs
+.ipynb_checkpoints
